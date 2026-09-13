@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Solara Quest — MVP</title>
+  </head>
+  <body>
+    <main id="app">
+      <div id="hud">
+        <section class="brand">
+          <p class="eyebrow">SOLARA QUEST</p>
+          <h1>Combat Feel Prototype</h1>
+          <p>Move with WASD · aim with mouse · <strong>Shift to dash</strong></p>
+        </section>
+        <section class="status" aria-live="polite">
+          <span id="dash-status">DASH READY</span>
+          <span id="position-status">X 0 · Y 0</span>
+        </section>
+        <section class="abilities" aria-label="Future ability bindings">
+          <span><b>Q</b> Skill I</span><span><b>E</b> Skill II</span>
+          <span><b>R</b> Skill III</span><span><b>F</b> Skill IV</span>
+          <span><b>1</b> Potion</span><span><b>2</b> Shield</span><span><b>3</b> Chaos Item</span>
+        </section>
+      </div>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
