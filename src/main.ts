@@ -176,12 +176,12 @@ function render(now: number) {
 
   dashCooldownRemaining = Math.max(0, dashCooldownRemaining - delta);
   const dashPercent = Math.round((1 - dashCooldownRemaining / dashCooldown) * 100);
-  dashStatus.textContent = dashCooldownRemaining <= 0 ? "DASH READY" : `DASH ${dashPercent}%`;
-  dashStatus.style.color = dashCooldownRemaining <= 0 ? "#ffb257" : "#9cabb7";
+  dashStatus!.textContent = dashCooldownRemaining <= 0 ? "DASH READY" : `DASH ${dashPercent}%`;
+  dashStatus!.style.color = dashCooldownRemaining <= 0 ? "#ffb257" : "#9cabb7";
 
   camera.position.x = THREE.MathUtils.lerp(camera.position.x, player.position.x, 1 - Math.exp(-8 * delta));
   camera.position.y = THREE.MathUtils.lerp(camera.position.y, player.position.y, 1 - Math.exp(-8 * delta));
-  positionStatus.textContent = `X ${Math.round(player.position.x)} · Y ${Math.round(player.position.y)}`;
+  positionStatus!.textContent = `X ${Math.round(player.position.x)} · Y ${Math.round(player.position.y)}`;
 
   updateAim();
   renderer.render(scene, camera);
