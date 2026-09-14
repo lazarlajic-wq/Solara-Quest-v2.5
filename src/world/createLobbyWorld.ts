@@ -9,6 +9,50 @@ const material = (color: THREE.ColorRepresentation, emissive?: THREE.ColorRepres
     side: THREE.DoubleSide,
   });
 
+const sign = (title: string, subtitle: string, color: string) => {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 128;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Solara Village sign canvas unavailable");
+  context.fillStyle = "rgba(7, 13, 23, .88)";
+  context.strokeStyle = color;
+  context.lineWidth = 5;
+  context.roundRect(5, 5, 502, 118, 18);
+  context.fill();
+  context.stroke();
+  context.textAlign = "center";
+  context.fillStyle = "#fff4df";
+  context.font = "800 42px system-ui";
+  context.fillText(title, 256, 52);
+  context.fillStyle = color;
+  context.font = "800 24px system-ui";
+  context.fillText(subtitle, 256, 91);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+  sprite.scale.set(4.6, 1.15, 1);
+  return sprite;
+};
+
+const interactionMarker = (title: string, subtitle: string, color: string) => {
+  const marker = new THREE.Group();
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(1.65, 1.8, 24),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .9, side: THREE.DoubleSide }),
+  );
+  ring.position.z = .1;
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(.035, .16, 2.8, 8),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .32, side: THREE.DoubleSide }),
+  );
+  beam.position.z = 1.5;
+  const markerLabel = sign(title, subtitle, color);
+  markerLabel.position.z = 4;
+  marker.add(ring, beam, markerLabel);
+  return marker;
+};
+
 const cube = (width: number, depth: number, height: number, color: THREE.ColorRepresentation) => {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, depth, height), material(color));
   mesh.position.z = height / 2;
@@ -70,7 +114,7 @@ export function createLobbyWorld(scene: THREE.Scene) {
   hut.add(hutWall, hutRoof, hutDoor, hutWindow);
   hut.position.set(LOBBY_POINTS.hut.x, LOBBY_POINTS.hut.y, 0);
   hut.traverse((child) => { if (child instanceof THREE.Mesh) { child.castShadow = true; child.receiveShadow = true; } });
-  world.add(hut);
+  world.add(hut);\n  const hutMarker = interactionMarker("YOUR HUT", "PRESS E · CHOOSE CLASS", "#ffcb7e");\n  hutMarker.position.set(LOBBY_POINTS.hut.x, LOBBY_POINTS.hut.y, 0);\n  world.add(hutMarker);
 
   const portal = new THREE.Group();
   const portalBase = new THREE.Mesh(new THREE.CylinderGeometry(1.65, 1.65, .35, 8), material("#49313b"));
@@ -82,7 +126,7 @@ export function createLobbyWorld(scene: THREE.Scene) {
   portalCore.position.z = 1.36;
   portal.add(portalBase, portalRing, portalCore);
   portal.position.set(LOBBY_POINTS.floorPortal.x, LOBBY_POINTS.floorPortal.y, 0);
-  world.add(portal);
+  world.add(portal);\n  const floorMarker = interactionMarker("FLOOR RUSH", "PRESS E · ENTER HELL GATE", "#ff735a");\n  floorMarker.position.set(LOBBY_POINTS.floorPortal.x, LOBBY_POINTS.floorPortal.y, 0);\n  world.add(floorMarker);
 
   const dragon = new THREE.Group();
   const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.8, .7, 8), material("#495163"));
@@ -102,7 +146,7 @@ export function createLobbyWorld(scene: THREE.Scene) {
   dragon.add(pedestal, dragonBody, dragonHead, wingLeft, wingRight);
   dragon.position.set(LOBBY_POINTS.royalDragon.x, LOBBY_POINTS.royalDragon.y, 0);
   dragon.traverse((child) => { if (child instanceof THREE.Mesh) { child.castShadow = true; child.receiveShadow = true; } });
-  world.add(dragon);
+  world.add(dragon);\n  const royaleMarker = interactionMarker("SOLARA ROYALE", "PRESS E · DRAGON MONUMENT", "#85aeff");\n  royaleMarker.position.set(LOBBY_POINTS.royalDragon.x, LOBBY_POINTS.royalDragon.y, 0);\n  world.add(royaleMarker);
 
   for (let index = 0; index < 18; index += 1) {
     const angle = (index / 18) * Math.PI * 2;
