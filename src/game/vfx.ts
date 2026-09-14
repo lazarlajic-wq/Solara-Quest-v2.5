@@ -44,6 +44,12 @@ export class VfxSystem {
     this.rings.push({ mesh, life, maxLife: life, grow: .55 });
   }
 
+  skillCast(position: THREE.Vector3, color: THREE.ColorRepresentation, power = 1) {
+    this.ring(position, .72 * power, color, .28);
+    this.ring(position, 1.25 * power, color, .44);
+    this.impact(position, color, Math.round(10 * power));
+  }
+
   dash(position: THREE.Vector3, color: THREE.ColorRepresentation) {
     this.ring(position, .85, color, .2);
     this.impact(position, color, 5);
