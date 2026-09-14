@@ -34,7 +34,7 @@ app.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#89b5c9");
-createPixelWorld(scene);
+let floorMap = createPixelWorld(scene, 1);
 
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, .1, 100);
 camera.up.set(0, 0, 1);
@@ -51,16 +51,6 @@ const CAMERA_DISTANCE = 17;
 let cameraYaw = 0;
 let cameraPitch = THREE.MathUtils.degToRad(50);
 let isCameraRotating = false;
-
-function addObstacle(x: number, y: number, width: number, height: number, color = "#374957") {
-  const obstacle = new THREE.Mesh(new THREE.BoxGeometry(width, height, 0.35), new THREE.MeshStandardMaterial({ color, roughness: .82 }));
-  obstacle.position.set(x, y, 0.2);
-  scene.add(obstacle);
-}
-addObstacle(-7, 4, 5, 1.2);
-addObstacle(8, -4, 3, 4);
-addObstacle(-3, -7, 6, 1);
-addObstacle(8, 5, 2.5, 2.5, "#54454f");
 
 const player = new THREE.Group();
 const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.72, 8), new THREE.MeshBasicMaterial({ color: "#081019", transparent: true, opacity: 0.55 }));
@@ -83,7 +73,7 @@ type Enemy = {
   speed: number;
   radius: number;
   attackTimer: number;
-  boss: boolean;
+  tier: "mob" | "miniBoss" | "boss";
 };
 
 type Projectile = {
@@ -107,33 +97,57 @@ let xpToNextLevel = 80;
 let nextFloorDelay = .9;
 let runComplete = false;
 
-function spawnEnemy(x: number, y: number, boss = false) {
+function spawnEnemy(x: number, y: number, tier: Enemy["tier"] = "mob") {
   const group = new THREE.Group();
-  const color = boss ? "#dc5c7a" : "#a773d9";
-  const enemyShadow = new THREE.Mesh(new THREE.CircleGeometry(boss ? 1.15 : 0.66, 8), new THREE.MeshBasicMaterial({ color: "#080b12", transparent: true, opacity: .48 }));
+  const isBoss = tier === "boss";
+  const isMiniBoss = tier === "miniBoss";
+  const color = isBoss ? "#dc5c7a" : isMiniBoss ? "#e59b4a" : "#a773d9";
+  const size = isBoss ? 1.5 : isMiniBoss ? 1.16 : .88;
+  const height = isBoss ? 1.55 : isMiniBoss ? 1.28 : 1.02;
+  const radius = isBoss ? 1.15 : isMiniBoss ? .9 : .7;
+  const enemyShadow = new THREE.Mesh(new THREE.CircleGeometry(radius, 8), new THREE.MeshBasicMaterial({ color: "#080b12", transparent: true, opacity: .48 }));
   enemyShadow.scale.y = .62;
-  const enemyBody = new THREE.Mesh(new THREE.BoxGeometry(boss ? 1.5 : .88, boss ? 1.5 : .88, boss ? 1.55 : 1.02), new THREE.MeshBasicMaterial({ color }));
-  enemyBody.position.z = boss ? .85 : .6;
-  const lifeBg = new THREE.Mesh(new THREE.PlaneGeometry(boss ? 2 : 1.1, .12), new THREE.MeshBasicMaterial({ color: "#241c2a" }));
-  lifeBg.position.set(0, boss ? 1.4 : .82, .25);
-  const life = new THREE.Mesh(new THREE.PlaneGeometry(boss ? 1.94 : 1.04, .08), new THREE.MeshBasicMaterial({ color: "#77e5a6" }));
-  life.position.set(0, boss ? 1.4 : .82, .26);
+  const enemyBody = new THREE.Mesh(new THREE.BoxGeometry(size, size, height), new THREE.MeshStandardMaterial({ color, roughness: .82 }));
+  enemyBody.position.z = height / 2;
+  const lifeBg = new THREE.Mesh(new THREE.PlaneGeometry(radius * 1.8, .12), new THREE.MeshBasicMaterial({ color: "#241c2a" }));
+  lifeBg.position.set(0, height + .3, .25);
+  const life = new THREE.Mesh(new THREE.PlaneGeometry(radius * 1.72, .08), new THREE.MeshBasicMaterial({ color: "#77e5a6" }));
+  life.position.set(0, height + .3, .26);
   life.name = "life";
   group.add(enemyShadow, enemyBody, lifeBg, life);
   group.position.set(x, y, 0);
   scene.add(group);
-  const maxHealth = boss ? 280 + floor * 65 : 48 + floor * 13;
-  enemies.push({ mesh: group, health: maxHealth, maxHealth, speed: boss ? .72 + floor * .015 : 1 + floor * .018, radius: boss ? 1.15 : .7, attackTimer: .8, boss });
+  const maxHealth = tier === "boss" ? 330 + floor * 78 : tier === "miniBoss" ? 150 + floor * 35 : 48 + floor * 13;
+  const speed = tier === "boss" ? .72 + floor * .015 : tier === "miniBoss" ? .86 + floor * .017 : 1 + floor * .018;
+  enemies.push({ mesh: group, health: maxHealth, maxHealth, speed, radius, attackTimer: .8, tier });
+}
+
+function refreshFloorMap() {
+  scene.remove(floorMap);
+  floorMap = createPixelWorld(scene, floor);
 }
 
 function startFloor() {
-  const isBossFloor = floor % 5 === 0;
-  const count = isBossFloor ? 1 : Math.min(3 + floor, 15);
-  for (let index = 0; index < count; index += 1) {
+  refreshFloorMap();
+  const isBossFloor = floor % 10 === 0;
+  const isMiniBossFloor = floor % 5 === 0 && !isBossFloor;
+  const spawnAroundPlayer = (index: number, count: number, tier: Enemy["tier"]) => {
     const angle = (Math.PI * 2 * index) / count + Math.random() * .4;
-    const distance = isBossFloor ? 8 : 7 + Math.random() * 4;
-    spawnEnemy(player.position.x + Math.cos(angle) * distance, player.position.y + Math.sin(angle) * distance, isBossFloor);
+    const distance = tier === "boss" ? 9 : 7 + Math.random() * 5;
+    spawnEnemy(player.position.x + Math.cos(angle) * distance, player.position.y + Math.sin(angle) * distance, tier);
+  };
+
+  if (isBossFloor) {
+    spawnAroundPlayer(0, 1, "boss");
+    return;
   }
+  if (isMiniBossFloor) {
+    spawnAroundPlayer(0, 1, "miniBoss");
+    for (let index = 0; index < 3 + Math.floor(floor / 5); index += 1) spawnAroundPlayer(index + 1, 5, "mob");
+    return;
+  }
+  const count = Math.min(3 + floor + Math.floor(Math.random() * 3), 18);
+  for (let index = 0; index < count; index += 1) spawnAroundPlayer(index, count, "mob");
 }
 
 function gainXp(amount: number) {
@@ -174,7 +188,7 @@ function damageEnemy(enemy: Enemy, amount: number, color: string) {
   if (life) life.scale.x = enemy.health / enemy.maxHealth;
   addEffect(new THREE.Vector2(enemy.mesh.position.x, enemy.mesh.position.y), enemy.radius + .18, color, .18);
   if (enemy.health <= 0) {
-    gainXp(enemy.boss ? 90 + floor * 12 : 16 + floor * 2);
+    gainXp(enemy.tier === "boss" ? 110 + floor * 14 : enemy.tier === "miniBoss" ? 46 + floor * 6 : 16 + floor * 2);
     scene.remove(enemy.mesh);
     enemies.splice(enemies.indexOf(enemy), 1);
   }
@@ -286,7 +300,7 @@ function spawnBoss() {
   combat.startCooldown("boss-spawner", 30);
   const target = new THREE.Vector2(aimWorld.x, aimWorld.y);
   addEffect(target, 1.2, "#ffbe5c", .8);
-  window.setTimeout(() => spawnEnemy(target.x, target.y, true), 600);
+  window.setTimeout(() => spawnEnemy(target.x, target.y, "boss"), 600);
 }
 
 function updateClassHud() {
@@ -394,8 +408,8 @@ function updateEnemies(delta: number) {
     }
     enemy.attackTimer -= delta;
     if (distance < enemy.radius + .82 && enemy.attackTimer <= 0) {
-      combat.takeDamage(enemy.boss ? 14 : 7);
-      enemy.attackTimer = enemy.boss ? .8 : 1.1;
+      combat.takeDamage(enemy.tier === "boss" ? 15 + floor : enemy.tier === "miniBoss" ? 10 + floor * .45 : 7 + floor * .18);
+      enemy.attackTimer = enemy.tier === "boss" ? .8 : enemy.tier === "miniBoss" ? .95 : 1.1;
       addEffect(new THREE.Vector2(player.position.x, player.position.y), .85, "#dc5c7a", .22);
     }
   }
