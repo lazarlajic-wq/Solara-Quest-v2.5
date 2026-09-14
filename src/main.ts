@@ -18,34 +18,31 @@ if (!app || !classPicker || !abilitiesHud || !dashStatus || !positionStatus || !
 }
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+const PIXEL_SCALE = .82;
+renderer.setPixelRatio(1);
+renderer.setSize(Math.floor(window.innerWidth * PIXEL_SCALE), Math.floor(window.innerHeight * PIXEL_SCALE), false);
+renderer.domElement.style.width = "100vw";
+renderer.domElement.style.height = "100vh";
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 app.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#101725");
 
-const viewHeight = 16;
-const camera = new THREE.OrthographicCamera();
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, .1, 100);
 camera.position.set(0, 0, 10);
 
 function resizeCamera() {
-  const aspect = window.innerWidth / window.innerHeight;
-  camera.left = (-viewHeight * aspect) / 2;
-  camera.right = (viewHeight * aspect) / 2;
-  camera.top = viewHeight / 2;
-  camera.bottom = -viewHeight / 2;
-  camera.near = 0.1;
-  camera.far = 100;
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(Math.floor(window.innerWidth * PIXEL_SCALE), Math.floor(window.innerHeight * PIXEL_SCALE), false);
 }
 resizeCamera();
 
 const CAMERA_DISTANCE = 17;
 let cameraYaw = Math.PI / 4;
-let targetCameraYaw = cameraYaw;
+let cameraPitch = THREE.MathUtils.degToRad(50);
+let isCameraRotating = false;
 
 const arena = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshBasicMaterial({ color: "#1b2b35" }));
 scene.add(arena);
@@ -300,13 +297,11 @@ function updateAbilityHud() {
 updateClassHud();
 
 window.addEventListener("keydown", (event) => {
-  const controls = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "KeyQ", "KeyE", "KeyR", "KeyF", "Digit1", "Digit2", "Digit3", "KeyZ", "KeyC"];
+  const controls = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "KeyQ", "KeyE", "KeyR", "KeyF", "Digit1", "Digit2", "Digit3"];
   if (controls.includes(event.code)) event.preventDefault();
   keys.add(event.code);
   if (event.repeat) return;
   if (event.code === "ShiftLeft" || event.code === "ShiftRight") startDash(kit.dashDistanceMultiplier);
-  if (event.code === "KeyZ") targetCameraYaw -= Math.PI / 4;
-  if (event.code === "KeyC") targetCameraYaw += Math.PI / 4;
   const abilitiesByKey: Record<string, AbilityDefinition | undefined> = { KeyQ: kit.abilities[0], KeyE: kit.abilities[1], KeyR: kit.abilities[2], KeyF: kit.abilities[3] };
   const selectedAbility = abilitiesByKey[event.code];
   if (selectedAbility) useAbility(selectedAbility);
@@ -316,15 +311,31 @@ window.addEventListener("keydown", (event) => {
 });
 
 window.addEventListener("keyup", (event) => keys.delete(event.code));
-window.addEventListener("pointermove", (event) => {
+renderer.domElement.addEventListener("contextmenu", (event) => event.preventDefault());
+renderer.domElement.addEventListener("pointermove", (event) => {
+  if (isCameraRotating) {
+    cameraYaw -= event.movementX * .008;
+    cameraPitch = THREE.MathUtils.clamp(cameraPitch + event.movementY * .006, THREE.MathUtils.degToRad(35), THREE.MathUtils.degToRad(65));
+    return;
+  }
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 });
-window.addEventListener("pointerdown", (event) => {
+renderer.domElement.addEventListener("pointerdown", (event) => {
+  if (event.button === 2) {
+    isCameraRotating = true;
+    renderer.domElement.setPointerCapture(event.pointerId);
+    return;
+  }
   if (event.button === 0 && combat.canUse("basic-attack")) {
     combat.startCooldown("basic-attack", .38);
     fireProjectile(kit.basicAttackDamage, "#fff0d6", 19, .13);
   }
+});
+renderer.domElement.addEventListener("pointerup", (event) => {
+  if (event.button !== 2) return;
+  isCameraRotating = false;
+  if (renderer.domElement.hasPointerCapture(event.pointerId)) renderer.domElement.releasePointerCapture(event.pointerId);
 });
 window.addEventListener("resize", resizeCamera);
 
@@ -411,12 +422,13 @@ function render(now: number) {
   updateEnemies(delta);
   updateEffects(delta);
 
-  cameraYaw = THREE.MathUtils.lerp(cameraYaw, targetCameraYaw, 1 - Math.exp(-7 * delta));
-  const cameraTarget = new THREE.Vector3(player.position.x, player.position.y, 0);
+  const cameraTarget = new THREE.Vector3(player.position.x, player.position.y, .35);
+  const horizontalDistance = CAMERA_DISTANCE * Math.cos(cameraPitch);
+  const height = CAMERA_DISTANCE * Math.sin(cameraPitch);
   camera.position.set(
-    player.position.x + Math.sin(cameraYaw) * CAMERA_DISTANCE,
-    player.position.y - Math.cos(cameraYaw) * CAMERA_DISTANCE,
-    CAMERA_DISTANCE,
+    player.position.x + Math.sin(cameraYaw) * horizontalDistance,
+    player.position.y - Math.cos(cameraYaw) * horizontalDistance,
+    height,
   );
   camera.lookAt(cameraTarget);
   updateHud();
