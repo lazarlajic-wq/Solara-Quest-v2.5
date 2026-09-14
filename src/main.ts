@@ -32,8 +32,9 @@ const royaleOverlay = document.querySelector<HTMLElement>("#royale-overlay");
 const royalStartButton = document.querySelector<HTMLButtonElement>("#royale-start-button");
 const royalCloseButton = document.querySelector<HTMLButtonElement>("#royale-close-button");
 const royalModeButtons = document.querySelectorAll<HTMLButtonElement>("[data-royal-mode]");
+const impactFlash = document.querySelector<HTMLElement>("#impact-flash");
 
-if (!app || !classPicker || !abilitiesHud || !upgradeOverlay || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill || !lootStatus || !interactionStatus || !objectiveStatus || !inviteButton || !pauseOverlay || !resumeButton || !villageButton || !cameraSensitivityInput || !pixelScaleInput || !royaleOverlay || !royalStartButton || !royalCloseButton) {
+if (!app || !classPicker || !abilitiesHud || !upgradeOverlay || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill || !lootStatus || !interactionStatus || !objectiveStatus || !inviteButton || !pauseOverlay || !resumeButton || !villageButton || !cameraSensitivityInput || !pixelScaleInput || !royaleOverlay || !royalStartButton || !royalCloseButton || !impactFlash) {
   throw new Error("Solara HUD could not be created.");
 }
 
@@ -350,7 +351,8 @@ function damageEnemy(enemy: Enemy, amount: number, color: string) {
   const life = enemy.mesh.getObjectByName("life") as THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | undefined;
   if (life) life.scale.x = enemy.health / enemy.maxHealth;
   addEffect(new THREE.Vector2(enemy.mesh.position.x, enemy.mesh.position.y), enemy.radius + .18, color, .18);
-  vfx.impact(enemy.mesh.position, color);
+  vfx.impact(enemy.mesh.position, color, enemy.tier === "boss" ? 18 : enemy.tier === "miniBoss" ? 12 : 7);
+  triggerImpact(enemy.tier === "boss" ? 1.7 : enemy.tier === "miniBoss" ? 1.15 : .5, color);
   if (enemy.health <= 0) {
     spawnLoot(enemy);
     if (gameState === "royale") royaleEliminations += 1;
@@ -384,6 +386,8 @@ let dashRemaining = 0;
 let dashCooldownRemaining = 0;
 const dashDirection = new THREE.Vector2(1, 0);
 let hasteRemaining = 0;
+let hitStopRemaining = 0;
+let cameraShake = 0;
 
 const keys = new Set<string>();
 const mouse = new THREE.Vector2();
@@ -391,6 +395,15 @@ const aimWorld = new THREE.Vector3();
 const raycaster = new THREE.Raycaster();
 const ground = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
 const moveDirection = new THREE.Vector2();
+
+function triggerImpact(intensity: number, color: string) {
+  hitStopRemaining = Math.max(hitStopRemaining, .018 * intensity);
+  cameraShake = Math.max(cameraShake, intensity);
+  impactFlash!.style.background = color;
+  impactFlash!.classList.remove("active");
+  void impactFlash!.offsetWidth;
+  impactFlash!.classList.add("active");
+}
 
 function updateAim() {
   raycaster.setFromCamera(mouse, camera);
@@ -418,6 +431,7 @@ function startDash(multiplier = 1) {
   dashDirection.copy(direction.lengthSq() === 0 ? new THREE.Vector2(Math.cos(player.rotation.z), Math.sin(player.rotation.z)) : direction);
   dashRemaining = .13 * multiplier;
   vfx.dash(player.position, kit.color);
+  triggerImpact(.55 * multiplier, kit.color);
   dashCooldownRemaining = 3 * runStats.dashCooldownMultiplier;
 }
 
@@ -427,6 +441,7 @@ function useAbility(ability: AbilityDefinition) {
   combat.startCooldown(ability.id, ability.cooldown * (1 - runStats.cooldownReduction));
   const target = new THREE.Vector2(aimWorld.x, aimWorld.y);
   const playerPoint = new THREE.Vector2(player.position.x, player.position.y);
+  vfx.skillCast(new THREE.Vector3(player.position.x, player.position.y, 0), kit.color, ability.kind === "area" ? 1.35 : 1);
 
   switch (ability.kind) {
     case "projectile":
@@ -659,6 +674,7 @@ function updateEnemies(delta: number) {
       combat.takeDamage(enemy.tier === "boss" ? 15 + floor : enemy.tier === "miniBoss" ? 10 + floor * .45 : 7 + floor * .18);
       enemy.attackTimer = enemy.tier === "boss" ? .8 : enemy.tier === "miniBoss" ? .95 : 1.1;
       addEffect(new THREE.Vector2(player.position.x, player.position.y), .85, "#dc5c7a", .22);
+      triggerImpact(enemy.tier === "boss" ? 1.35 : .65, "#dc5c7a");
     }
   }
 }
@@ -742,7 +758,10 @@ function updateHud() {
 function render(now: number) {
   const delta = Math.min((now - lastTime) / 1000, .05);
   lastTime = now;
-  const simulationDelta = pauseOpen ? 0 : delta;
+  const inHitStop = hitStopRemaining > 0;
+  hitStopRemaining = Math.max(0, hitStopRemaining - delta);
+  const simulationDelta = pauseOpen || inHitStop ? 0 : delta;
+  cameraShake = Math.max(0, cameraShake - delta * 7);
   if (!upgradeOpen && !pauseOpen) combat.update(simulationDelta);
   updateUpgradeTimer(simulationDelta);
   dashCooldownRemaining = Math.max(0, dashCooldownRemaining - simulationDelta);
@@ -774,10 +793,12 @@ function render(now: number) {
   const cameraTarget = new THREE.Vector3(player.position.x, player.position.y, .35);
   const horizontalDistance = CAMERA_DISTANCE * Math.cos(cameraPitch);
   const height = CAMERA_DISTANCE * Math.sin(cameraPitch);
+  const shakeX = (Math.random() - .5) * cameraShake * .22;
+  const shakeY = (Math.random() - .5) * cameraShake * .22;
   camera.position.set(
-    player.position.x + Math.sin(cameraYaw) * horizontalDistance,
-    player.position.y - Math.cos(cameraYaw) * horizontalDistance,
-    height,
+    player.position.x + Math.sin(cameraYaw) * horizontalDistance + shakeX,
+    player.position.y - Math.cos(cameraYaw) * horizontalDistance + shakeY,
+    height + cameraShake * .06,
   );
   camera.lookAt(cameraTarget);
   updateHud();
