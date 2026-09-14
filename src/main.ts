@@ -21,9 +21,10 @@ const healthFill = document.querySelector<HTMLElement>("#health-fill");
 const shieldFill = document.querySelector<HTMLElement>("#shield-fill");
 const lootStatus = document.querySelector<HTMLSpanElement>("#loot-status");
 const interactionStatus = document.querySelector<HTMLSpanElement>("#interaction-status");
+const objectiveStatus = document.querySelector<HTMLSpanElement>("#objective-status");
 const inviteButton = document.querySelector<HTMLButtonElement>("#invite-button");
 
-if (!app || !classPicker || !abilitiesHud || !upgradeOverlay || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill || !lootStatus || !interactionStatus || !inviteButton) {
+if (!app || !classPicker || !abilitiesHud || !upgradeOverlay || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill || !lootStatus || !interactionStatus || !objectiveStatus || !inviteButton) {
   throw new Error("Solara HUD could not be created.");
 }
 
@@ -192,6 +193,7 @@ function enterLobby() {
   gameState = "lobby";
   classMenuOpen = false;
   lobbyMessage = "Explore the village · E to interact";
+  player.position.set(0, 0, 0);
   updateClassHud();
 }
 
@@ -505,11 +507,12 @@ inviteButton!.addEventListener("click", async () => {
 });
 
 window.addEventListener("keydown", (event) => {
-  const controls = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "KeyE"];
+  const controls = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "KeyE", "KeyB"];
   if (controls.includes(event.code)) event.preventDefault();
   keys.add(event.code);
   if (event.repeat) return;
   if (event.code === "KeyE") tryLobbyInteraction();
+  if (event.code === "KeyB" && gameState === "floorRush") enterLobby();
   if (event.code === "ShiftLeft" || event.code === "ShiftRight") startDash(kit.dashDistanceMultiplier);
   const abilitiesByKey: Record<string, AbilityDefinition | undefined> = { Digit1: kit.abilities[0], Digit2: kit.abilities[1], Digit3: kit.abilities[2], Digit4: kit.abilities[3] };
   const selectedAbility = abilitiesByKey[event.code];
@@ -639,6 +642,16 @@ function updateHud() {
     else if (position.distanceTo(LOBBY_POINTS.royalDragon) < 3) lobbyMessage = "Press E: Solara Royale · Dragon Monument";
   }
   interactionStatus!.textContent = lobbyMessage;
+  if (gameState === "lobby") {
+    objectiveStatus!.textContent = "OBJECTIVE · Explore · E to interact";
+  } else if (!combat.snapshot.alive) {
+    objectiveStatus!.textContent = "RUN FAILED · Press B to return to Village";
+  } else if (runComplete) {
+    objectiveStatus!.textContent = "FLOOR RUSH COMPLETE · Press B to return to Village";
+  } else {
+    const special = floor % 10 === 0 ? "BOSS FLOOR" : floor % 5 === 0 ? "MINI BOSS FLOOR" : "CLEAR THE ARENA";
+    objectiveStatus!.textContent = "OBJECTIVE · " + special + " · " + enemies.length + " enemy" + (enemies.length === 1 ? "" : "ies") + " remaining · B Village";
+  }
   updateAbilityHud();
 }
 
