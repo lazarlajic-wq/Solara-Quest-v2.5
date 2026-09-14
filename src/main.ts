@@ -30,6 +30,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color("#101725");
 
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, .1, 100);
+camera.up.set(0, 0, 1);
 camera.position.set(0, 0, 10);
 
 function resizeCamera() {
@@ -40,7 +41,7 @@ function resizeCamera() {
 resizeCamera();
 
 const CAMERA_DISTANCE = 17;
-let cameraYaw = Math.PI / 4;
+let cameraYaw = 0;
 let cameraPitch = THREE.MathUtils.degToRad(50);
 let isCameraRotating = false;
 
