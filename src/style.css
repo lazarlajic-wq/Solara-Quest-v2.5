@@ -42,3 +42,11 @@ p { margin: 0; font-size: 13px; color: #c5ced8; }
 .pause-card label { display: grid; gap: 7px; margin-top: 15px; color: #cbd6e2; font-size: 12px; font-weight: 800; }
 .pause-card input { accent-color: #ffb257; }
 .pause-card small { display: block; margin-top: 19px; text-align: center; color: #98a8b9; }
+.royale-overlay { pointer-events: auto; position: absolute; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(3, 7, 14, .64); }
+.royale-overlay[hidden] { display: none; }
+.royale-card { width: min(520px, 100%); padding: 27px; border: 1px solid rgba(122, 165, 255, .75); border-radius: 14px; background: linear-gradient(145deg, rgba(24, 38, 68, .98), rgba(7, 12, 23, .98)); box-shadow: 0 22px 70px rgba(0,0,0,.62); }
+.royale-card h2 { margin: 4px 0 8px; font-size: 30px; }.royale-card p:not(.eyebrow) { line-height: 1.45; }
+.royal-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 20px 0 12px; }
+.royal-modes button, .royale-card > button { cursor: pointer; padding: 12px; border: 1px solid rgba(133, 174, 255, .5); border-radius: 7px; color: #e9f0ff; font: 800 13px inherit; background: rgba(70, 107, 172, .16); }
+.royal-modes button.active, .royal-modes button:hover { border-color: #a9c8ff; background: rgba(89, 136, 222, .35); }.royal-modes small { color: #9eb9e9; }
+.royale-card > button { width: 100%; margin-top: 8px; background: rgba(87, 134, 222, .34); }.royale-card > button.secondary { background: rgba(255,255,255,.06); }
