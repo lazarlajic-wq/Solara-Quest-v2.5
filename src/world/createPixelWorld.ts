@@ -19,9 +19,25 @@ const cube = (width: number, depth: number, height: number, color: THREE.ColorRe
   return mesh;
 };
 
-export function createPixelWorld(scene: THREE.Scene) {
+const PALETTES = [
+  { ground: "#547b54", water: "#3b87a8", foliage: "#2f6543", crown: "#559050", roof: "#7e4855" },
+  { ground: "#786f49", water: "#56869b", foliage: "#4e6e3c", crown: "#88924f", roof: "#8e5c42" },
+  { ground: "#536b7b", water: "#4b8ab1", foliage: "#315e68", crown: "#5e98a0", roof: "#6f526f" },
+  { ground: "#70504a", water: "#516b87", foliage: "#5b493d", crown: "#9b6542", roof: "#75404b" },
+] as const;
+
+export function createPixelWorld(scene: THREE.Scene, seed = 1) {
+  let randomState = seed * 16807;
+  const random = () => {
+    randomState = (randomState * 48271) % 2147483647;
+    return (randomState - 1) / 2147483646;
+  };
+  const palette = PALETTES[(seed - 1) % PALETTES.length];
+  const world = new THREE.Group();
+  world.name = "procedural-floor-map";
+  scene.add(world);
   const ambient = new THREE.HemisphereLight("#b8d7ff", "#26331f", 2.1);
-  scene.add(ambient);
+  world.add(ambient);
 
   const sun = new THREE.DirectionalLight("#ffe4b2", 3.3);
   sun.position.set(-12, -10, 22);
@@ -34,21 +50,21 @@ export function createPixelWorld(scene: THREE.Scene) {
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = 45;
   sun.shadow.normalBias = .025;
-  scene.add(sun);
+  world.add(sun);
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(66, 66), material("#547b54"));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(66, 66), material(palette.ground));
   ground.receiveShadow = true;
-  scene.add(ground);
+  world.add(ground);
 
-  const water = new THREE.Mesh(new THREE.BoxGeometry(13, 8, .16), material("#3b87a8"));
+  const water = new THREE.Mesh(new THREE.BoxGeometry(13, 8, .16), material(palette.water));
   water.position.set(-11, 7, .07);
   water.receiveShadow = true;
-  scene.add(water);
+  world.add(water);
 
   for (let i = 0; i < 9; i += 1) {
     const ripple = new THREE.Mesh(new THREE.BoxGeometry(1.1, .13, .025), material("#88c4d5"));
     ripple.position.set(-15 + (i % 4) * 2.5, 4.8 + Math.floor(i / 4) * 2.1, .17);
-    scene.add(ripple);
+    world.add(ripple);
   }
 
   const pathSegments = [
@@ -60,7 +76,7 @@ export function createPixelWorld(scene: THREE.Scene) {
     const path = new THREE.Mesh(new THREE.BoxGeometry(width, depth, .08), material("#ba985f"));
     path.position.set(x, y, .04);
     path.receiveShadow = true;
-    scene.add(path);
+    world.add(path);
   }
 
   const addTree = (x: number, y: number, scale = 1) => {
@@ -72,31 +88,32 @@ export function createPixelWorld(scene: THREE.Scene) {
     crown.position.set(-.11 * scale, -.1 * scale, 2.16 * scale);
     tree.add(trunk, foliage, crown);
     tree.position.set(x, y, 0);
-    scene.add(shadow(tree));
+    world.add(shadow(tree));
   };
 
   [
     [-17, -5, 1.2], [-13, 1, .85], [-6, 10, 1.1], [0, 11, .92],
     [10, 9, 1.2], [15, 3, .85], [13, -9, 1.1], [5, -12, .95],
     [-7, -12, 1.12], [-16, -12, .9], [-3, 4, .75], [8, -1, .72],
-  ].forEach(([x, y, scale]) => addTree(x, y, scale));
+  ].forEach(([x, y, scale]) => addTree(x + (random() - .5) * 7, y + (random() - .5) * 7, scale * (.8 + random() * .45)));
 
   const house = new THREE.Group();
   const wall = cube(5.2, 4.1, 2.6, "#d19a67");
   const door = cube(.85, .18, 1.55, "#493326");
   door.position.set(0, -2.14, .78);
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(4.15, 2.1, 4), material("#7e4855"));
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(4.15, 2.1, 4), material(palette.roof));
   roof.rotation.z = Math.PI / 4;
   roof.position.z = 3.55;
   house.add(wall, door, roof);
-  house.position.set(8, 6, 0);
-  scene.add(shadow(house));
+  house.position.set(4 + random() * 9, 2 + random() * 9, 0);
+house.rotation.z = Math.floor(random() * 4) * Math.PI / 2;
+  world.add(shadow(house));
 
   const addRock = (x: number, y: number, scale = 1) => {
     const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(.62 * scale, 0), material("#5d6970"));
     rock.scale.z = .72;
     rock.position.set(x, y, .46 * scale);
-    scene.add(shadow(rock));
+    world.add(shadow(rock));
   };
   [[-10, -7, 1.1], [-4, -8, .7], [2, -9, .9], [12, -5, 1.2], [14, 10, .8], [-1, 12, .8]].forEach(([x, y, scale]) => addRock(x, y, scale));
 
@@ -106,8 +123,11 @@ export function createPixelWorld(scene: THREE.Scene) {
   fire.position.z = 1.4;
   torch.add(post, fire);
   torch.position.set(3.2, 3.1, 0);
-  scene.add(shadow(torch));
+  world.add(shadow(torch));
   const torchLight = new THREE.PointLight("#ff9e4a", 18, 8, 2);
   torchLight.position.set(3.2, 3.1, 1.7);
-  scene.add(torchLight);
+  world.add(torchLight);
+
+  world.rotation.z = Math.floor(random() * 4) * Math.PI / 2;
+  return world;
 }
