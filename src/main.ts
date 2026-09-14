@@ -219,6 +219,7 @@ function spawnEnemy(x: number, y: number, tier: Enemy["tier"] = "mob") {
   enemyBody.name = "enemy-body";
   enemyBody.scale.set(1, .86, height / size);
   enemyBody.position.z = height * .56;
+  enemyBody.userData.baseZ = enemyBody.position.z;
   enemyBody.castShadow = true;
 
   const eyeMaterial = new THREE.MeshBasicMaterial({ color: accent, toneMapped: false });
@@ -924,7 +925,7 @@ function updateEnemies(delta: number) {
     const enemyCore = enemy.mesh.getObjectByName("enemy-core");
     if (enemyBody) {
       enemyBody.rotation.z += delta * (enemy.tier === "boss" ? .65 : .32);
-      enemyBody.position.z += Math.sin(performance.now() * .004 + enemy.mesh.id) * delta * .11;
+      enemyBody.position.z = Number(enemyBody.userData.baseZ) + Math.sin(performance.now() * .004 + enemy.mesh.id) * .05;
     }
     if (enemyAura) enemyAura.rotation.z -= delta * (enemy.tier === "boss" ? 1.4 : .55);
     if (enemyCore) {
