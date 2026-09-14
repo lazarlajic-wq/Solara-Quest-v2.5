@@ -219,7 +219,7 @@ export function createLobbyWorld(scene: THREE.Scene) {
   const embers = new THREE.Group();
   embers.name = "portal-embers";
   for (let index = 0; index < 22; index += 1) {
-    const ember = new THREE.Mesh(emberGeometry, emberMaterial);
+    const ember = new THREE.Mesh(emberGeometry, emberMaterial.clone());
     ember.userData.phase = Math.random() * Math.PI * 2;
     ember.userData.radius = 1.1 + Math.random() * 1.25;
     ember.userData.speed = .45 + Math.random() * .85;
