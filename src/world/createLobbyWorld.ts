@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const material = (color: THREE.ColorRepresentation, emissive?: THREE.ColorRepresentation) =>
   new THREE.MeshBasicMaterial({
@@ -120,16 +121,62 @@ export function createLobbyWorld(scene: THREE.Scene) {
   world.add(hutMarker);
 
   const portal = new THREE.Group();
+  portal.name = "floor-rush-portal";
+  portal.position.set(LOBBY_POINTS.floorPortal.x, LOBBY_POINTS.floorPortal.y, 0);
+  world.add(portal);
+
+  // A lightweight animated energy layer keeps the gate alive while the GLB loads.
+  const portalFallback = new THREE.Group();
+  portalFallback.name = "portal-fallback";
   const portalBase = new THREE.Mesh(new THREE.CylinderGeometry(1.65, 1.65, .35, 8), material("#49313b"));
   portalBase.position.z = .18;
   const portalRing = new THREE.Mesh(new THREE.TorusGeometry(1.22, .18, 6, 12), material("#c65045", "#d84236"));
   portalRing.rotation.x = Math.PI / 2;
   portalRing.position.z = 1.35;
   const portalCore = new THREE.Mesh(new THREE.CircleGeometry(1.05, 16), material("#f05d44", "#ff7046"));
+  portalCore.rotation.x = Math.PI / 2;
   portalCore.position.z = 1.36;
-  portal.add(portalBase, portalRing, portalCore);
-  portal.position.set(LOBBY_POINTS.floorPortal.x, LOBBY_POINTS.floorPortal.y, 0);
-  world.add(portal);
+  portalFallback.add(portalBase, portalRing, portalCore);
+  portal.add(portalFallback);
+
+  const energyRing = new THREE.Mesh(
+    new THREE.TorusGeometry(1.28, .035, 6, 24),
+    new THREE.MeshBasicMaterial({ color: "#ff7b38", transparent: true, opacity: .75, toneMapped: false }),
+  );
+  energyRing.name = "portal-energy";
+  energyRing.rotation.x = Math.PI / 2;
+  energyRing.position.z = .42;
+  portal.add(energyRing);
+  const portalLight = new THREE.PointLight("#ff4f2e", 20, 8, 2);
+  portalLight.position.z = 2.1;
+  portal.add(portalLight);
+
+  const portalLoader = new GLTFLoader();
+  portalLoader.load(
+    "/assets/models/solara-portal.glb",
+    (gltf) => {
+      if (!world.parent) return;
+      const model = gltf.scene;
+      model.name = "solara-portal-model";
+      // Tripo exports in Y-up; Solara's world uses Z-up.
+      model.rotation.x = Math.PI / 2;
+      model.scale.setScalar(1.28);
+      model.position.z = .02;
+      model.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      portalFallback.visible = false;
+      portal.add(model);
+    },
+    undefined,
+    () => {
+      // The fallback remains playable if the asset cannot be loaded.
+      portalFallback.visible = true;
+    },
+  );
   const floorMarker = interactionMarker("FLOOR RUSH", "PRESS E · ENTER HELL GATE", "#ff735a");
   floorMarker.position.set(LOBBY_POINTS.floorPortal.x, LOBBY_POINTS.floorPortal.y, 0);
   world.add(floorMarker);
