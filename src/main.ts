@@ -650,7 +650,7 @@ function updateHud() {
     objectiveStatus!.textContent = "FLOOR RUSH COMPLETE · Press B to return to Village";
   } else {
     const special = floor % 10 === 0 ? "BOSS FLOOR" : floor % 5 === 0 ? "MINI BOSS FLOOR" : "CLEAR THE ARENA";
-    objectiveStatus!.textContent = "OBJECTIVE · " + special + " · " + enemies.length + " enemy" + (enemies.length === 1 ? "" : "ies") + " remaining · B Village";
+    objectiveStatus!.textContent = "OBJECTIVE · " + special + " · " + enemies.length + " foes remaining · B Village";
   }
   updateAbilityHud();
 }
