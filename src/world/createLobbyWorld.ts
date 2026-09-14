@@ -140,14 +140,14 @@ export function createLobbyWorld(scene: THREE.Scene) {
   portal.add(portalFallback);
 
   const energyRing = new THREE.Mesh(
-    new THREE.TorusGeometry(1.28, .035, 6, 24),
+    new THREE.TorusGeometry(3.1, .06, 6, 32),
     new THREE.MeshBasicMaterial({ color: "#ff7b38", transparent: true, opacity: .75, toneMapped: false }),
   );
   energyRing.name = "portal-energy";
   energyRing.rotation.x = Math.PI / 2;
-  energyRing.position.z = .42;
+  energyRing.position.z = .5;
   portal.add(energyRing);
-  const portalLight = new THREE.PointLight("#ff4f2e", 20, 8, 2);
+  const portalLight = new THREE.PointLight("#ff4f2e", 34, 15, 2);
   portalLight.position.z = 2.1;
   portal.add(portalLight);
 
@@ -160,7 +160,7 @@ export function createLobbyWorld(scene: THREE.Scene) {
       model.name = "solara-portal-model";
       // Tripo exports in Y-up; Solara's world uses Z-up.
       model.rotation.x = Math.PI / 2;
-      model.scale.setScalar(1.28);
+      model.scale.setScalar(3.8);
       model.position.z = .02;
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
@@ -179,6 +179,7 @@ export function createLobbyWorld(scene: THREE.Scene) {
   );
   const floorMarker = interactionMarker("FLOOR RUSH", "PRESS E · ENTER HELL GATE", "#ff735a");
   floorMarker.position.set(LOBBY_POINTS.floorPortal.x, LOBBY_POINTS.floorPortal.y, 0);
+  floorMarker.children[2].position.z = 7.6;
   world.add(floorMarker);
 
   const dragon = new THREE.Group();
