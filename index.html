@@ -8,6 +8,16 @@
         <section class="status" aria-live="polite"><div class="vitals"><span id="class-status">SOLARIS WARDEN</span><div class="bar"><i id="health-fill"></i><i id="shield-fill"></i></div><span id="health-status">180 / 180</span></div><span id="floor-status">FLOOR 1 · LEVEL 1</span><span id="dash-status">DASH READY</span><span id="position-status">X 0 · Y 0</span><span id="loot-status">LOOT: —</span><span id="objective-status">OBJECTIVE · Explore · E to interact</span><span id="interaction-status">SOLARA VILLAGE</span><button id="invite-button" type="button">Invite friend</button></section>
         <section id="abilities" class="abilities" aria-label="Fähigkeiten"></section>
         <section id="upgrade-overlay" class="upgrade-overlay" hidden aria-live="polite"></section>
+        <section id="pause-overlay" class="pause-overlay" hidden aria-label="Pause menu">
+          <div class="pause-card">
+            <p class="eyebrow">GAME MENU</p><h2>Paused</h2>
+            <button id="resume-button" type="button">Continue</button>
+            <button id="village-button" type="button">Return to Village</button>
+            <label>Camera sensitivity <input id="camera-sensitivity" type="range" min="0.5" max="1.8" step="0.1" value="1" /></label>
+            <label>Pixel resolution <input id="pixel-scale" type="range" min="0.55" max="1" step="0.05" value="0.82" /></label>
+            <small>Esc to continue</small>
+          </div>
+        </section>
       </div>
     </main>
     <script type="module" src="/src/main.ts"></script>
