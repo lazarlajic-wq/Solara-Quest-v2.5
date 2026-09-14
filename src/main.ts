@@ -39,14 +39,14 @@ if (!app || !classPicker || !abilitiesHud || !upgradeOverlay || !floorStatus || 
 }
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
-let pixelScale = .82;
+let pixelScale = .7;
 renderer.setPixelRatio(1);
 renderer.setSize(Math.floor(window.innerWidth * pixelScale), Math.floor(window.innerHeight * pixelScale), false);
 renderer.domElement.style.width = "100vw";
 renderer.domElement.style.height = "100vh";
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.BasicShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.25;
 app.appendChild(renderer.domElement);
@@ -486,10 +486,6 @@ function fireProjectile(damage: number, color: string, speed = 16, radius = .16,
   );
   mesh.rotation.z = Math.atan2(direction.y, direction.x);
   mesh.position.set(player.position.x + direction.x * .78, player.position.y + direction.y * .78, .52);
-  if (style.includes("orb") || style === "arcanist") {
-    const light = new THREE.PointLight(color, 8, 4, 2);
-    mesh.add(light);
-  }
   scene.add(mesh);
   vfx.skillCast(mesh.position, color, .46);
   projectiles.push({
@@ -521,7 +517,7 @@ const ground = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
 const moveDirection = new THREE.Vector2();
 
 function triggerImpact(intensity: number, color: string) {
-  hitStopRemaining = Math.max(hitStopRemaining, .018 * intensity);
+  hitStopRemaining = Math.max(hitStopRemaining, .011 * intensity);
   cameraShake = Math.max(cameraShake, intensity);
   impactFlash!.style.background = color;
   impactFlash!.classList.remove("active");
@@ -894,7 +890,7 @@ function updateProjectiles(delta: number) {
     if (projectile.trailTimer <= 0) {
       const trailPower = projectile.style.includes("arrow") ? 1.2 : projectile.style.includes("orb") ? 1.55 : .9;
       vfx.projectileTrail(projectile.mesh.position, projectile.mesh.material.color, trailPower);
-      projectile.trailTimer = projectile.style.includes("orb") ? .018 : .028;
+      projectile.trailTimer = projectile.style.includes("orb") ? .05 : .07;
     }
     const hit = enemies.find((enemy) => projectile.mesh.position.distanceTo(enemy.mesh.position) < projectile.radius + enemy.radius);
     if (hit) {
@@ -1041,7 +1037,7 @@ function render(now: number) {
     dashAfterimageTimer -= simulationDelta;
     if (dashAfterimageTimer <= 0) {
       vfx.afterimage(player.position, player.rotation.z, kit.color);
-      dashAfterimageTimer = .028;
+      dashAfterimageTimer = .05;
     }
   } else {
     player.position.x += direction.x * speed * simulationDelta;
