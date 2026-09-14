@@ -587,6 +587,7 @@ function updateEnemies(delta: number) {
 }
 
 function updateFloorRush(delta: number) {
+  if (gameState !== "floorRush") return;
   if (!combat.snapshot.alive || runComplete || upgradeOpen) return;
   if (enemies.length > 0) {
     floorClearCountdown = -1;
