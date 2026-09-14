@@ -114,7 +114,10 @@ export function createLobbyWorld(scene: THREE.Scene) {
   hut.add(hutWall, hutRoof, hutDoor, hutWindow);
   hut.position.set(LOBBY_POINTS.hut.x, LOBBY_POINTS.hut.y, 0);
   hut.traverse((child) => { if (child instanceof THREE.Mesh) { child.castShadow = true; child.receiveShadow = true; } });
-  world.add(hut);\n  const hutMarker = interactionMarker("YOUR HUT", "PRESS E · CHOOSE CLASS", "#ffcb7e");\n  hutMarker.position.set(LOBBY_POINTS.hut.x, LOBBY_POINTS.hut.y, 0);\n  world.add(hutMarker);
+  world.add(hut);
+  const hutMarker = interactionMarker("YOUR HUT", "PRESS E · CHOOSE CLASS", "#ffcb7e");
+  hutMarker.position.set(LOBBY_POINTS.hut.x, LOBBY_POINTS.hut.y, 0);
+  world.add(hutMarker);
 
   const portal = new THREE.Group();
   const portalBase = new THREE.Mesh(new THREE.CylinderGeometry(1.65, 1.65, .35, 8), material("#49313b"));
@@ -126,7 +129,10 @@ export function createLobbyWorld(scene: THREE.Scene) {
   portalCore.position.z = 1.36;
   portal.add(portalBase, portalRing, portalCore);
   portal.position.set(LOBBY_POINTS.floorPortal.x, LOBBY_POINTS.floorPortal.y, 0);
-  world.add(portal);\n  const floorMarker = interactionMarker("FLOOR RUSH", "PRESS E · ENTER HELL GATE", "#ff735a");\n  floorMarker.position.set(LOBBY_POINTS.floorPortal.x, LOBBY_POINTS.floorPortal.y, 0);\n  world.add(floorMarker);
+  world.add(portal);
+  const floorMarker = interactionMarker("FLOOR RUSH", "PRESS E · ENTER HELL GATE", "#ff735a");
+  floorMarker.position.set(LOBBY_POINTS.floorPortal.x, LOBBY_POINTS.floorPortal.y, 0);
+  world.add(floorMarker);
 
   const dragon = new THREE.Group();
   const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.8, .7, 8), material("#495163"));
@@ -146,7 +152,10 @@ export function createLobbyWorld(scene: THREE.Scene) {
   dragon.add(pedestal, dragonBody, dragonHead, wingLeft, wingRight);
   dragon.position.set(LOBBY_POINTS.royalDragon.x, LOBBY_POINTS.royalDragon.y, 0);
   dragon.traverse((child) => { if (child instanceof THREE.Mesh) { child.castShadow = true; child.receiveShadow = true; } });
-  world.add(dragon);\n  const royaleMarker = interactionMarker("SOLARA ROYALE", "PRESS E · DRAGON MONUMENT", "#85aeff");\n  royaleMarker.position.set(LOBBY_POINTS.royalDragon.x, LOBBY_POINTS.royalDragon.y, 0);\n  world.add(royaleMarker);
+  world.add(dragon);
+  const royaleMarker = interactionMarker("SOLARA ROYALE", "PRESS E · DRAGON MONUMENT", "#85aeff");
+  royaleMarker.position.set(LOBBY_POINTS.royalDragon.x, LOBBY_POINTS.royalDragon.y, 0);
+  world.add(royaleMarker);
 
   for (let index = 0; index < 18; index += 1) {
     const angle = (index / 18) * Math.PI * 2;
