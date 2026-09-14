@@ -244,10 +244,10 @@ function spawnBoss() {
 }
 
 function updateClassHud() {
-  classStatus.textContent = kit.name.toUpperCase();
-  classStatus.style.color = kit.color;
+  classStatus!.textContent = kit.name.toUpperCase();
+  classStatus!.style.color = kit.color;
   body.material.color.set(kit.color);
-  classPicker.replaceChildren(...(Object.values(CLASS_KITS).map((nextKit) => {
+  classPicker!.replaceChildren(...(Object.values(CLASS_KITS).map((nextKit) => {
     const button = document.createElement("button");
     button.textContent = nextKit.name.replace("Solaris ", "").replace("Astral ", "");
     button.style.setProperty("--class-color", nextKit.color);
@@ -268,7 +268,7 @@ function updateAbilityHud() {
     { key: "2", name: "Shield", cooldown: combat.cooldownRemaining("shield-item") },
     { key: "3", name: "Boss Spawner", cooldown: combat.cooldownRemaining("boss-spawner") },
   ];
-  abilitiesHud.replaceChildren(...entries.map((entry) => {
+  abilitiesHud!.replaceChildren(...entries.map((entry) => {
     const item = document.createElement("span");
     item.className = entry.cooldown > 0 ? "cooldown" : "";
     item.innerHTML = "<b>" + entry.key + "</b>" + entry.name + (entry.cooldown > 0 ? " · " + entry.cooldown.toFixed(1) : "");
@@ -285,7 +285,8 @@ window.addEventListener("keydown", (event) => {
   if (event.repeat) return;
   if (event.code === "ShiftLeft" || event.code === "ShiftRight") startDash(kit.dashDistanceMultiplier);
   const abilitiesByKey: Record<string, AbilityDefinition | undefined> = { KeyQ: kit.abilities[0], KeyE: kit.abilities[1], KeyR: kit.abilities[2], KeyF: kit.abilities[3] };
-  if (abilitiesByKey[event.code]) useAbility(abilitiesByKey[event.code]);
+  const selectedAbility = abilitiesByKey[event.code];
+  if (selectedAbility) useAbility(selectedAbility);
   if (event.code === "Digit1") usePotion();
   if (event.code === "Digit2") useShield();
   if (event.code === "Digit3") spawnBoss();
@@ -352,12 +353,12 @@ function updateEffects(delta: number) {
 
 function updateHud() {
   const snapshot = combat.snapshot;
-  healthFill.style.width = (snapshot.health / snapshot.maxHealth) * 100 + "%";
-  shieldFill.style.width = (snapshot.shield / snapshot.maxShield) * 100 + "%";
-  healthStatus.textContent = Math.ceil(snapshot.health) + " / " + snapshot.maxHealth;
-  dashStatus.textContent = dashCooldownRemaining <= 0 ? "DASH READY" : "DASH " + Math.round((1 - dashCooldownRemaining / 3) * 100) + "%";
-  dashStatus.style.color = dashCooldownRemaining <= 0 ? "#ffb257" : "#9cabb7";
-  positionStatus.textContent = "X " + Math.round(player.position.x) + " · Y " + Math.round(player.position.y);
+  healthFill!.style.width = (snapshot.health / snapshot.maxHealth) * 100 + "%";
+  shieldFill!.style.width = (snapshot.shield / snapshot.maxShield) * 100 + "%";
+  healthStatus!.textContent = Math.ceil(snapshot.health) + " / " + snapshot.maxHealth;
+  dashStatus!.textContent = dashCooldownRemaining <= 0 ? "DASH READY" : "DASH " + Math.round((1 - dashCooldownRemaining / 3) * 100) + "%";
+  dashStatus!.style.color = dashCooldownRemaining <= 0 ? "#ffb257" : "#9cabb7";
+  positionStatus!.textContent = "X " + Math.round(player.position.x) + " · Y " + Math.round(player.position.y);
   updateAbilityHud();
 }
 
