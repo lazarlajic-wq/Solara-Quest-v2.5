@@ -7,6 +7,7 @@ import "./style.css";
 const app = document.querySelector<HTMLDivElement>("#app");
 const classPicker = document.querySelector<HTMLDivElement>("#class-picker");
 const abilitiesHud = document.querySelector<HTMLElement>("#abilities");
+const floorStatus = document.querySelector<HTMLSpanElement>("#floor-status");
 const dashStatus = document.querySelector<HTMLSpanElement>("#dash-status");
 const positionStatus = document.querySelector<HTMLSpanElement>("#position-status");
 const classStatus = document.querySelector<HTMLSpanElement>("#class-status");
@@ -14,7 +15,7 @@ const healthStatus = document.querySelector<HTMLSpanElement>("#health-status");
 const healthFill = document.querySelector<HTMLElement>("#health-fill");
 const shieldFill = document.querySelector<HTMLElement>("#shield-fill");
 
-if (!app || !classPicker || !abilitiesHud || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill) {
+if (!app || !classPicker || !abilitiesHud || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill) {
   throw new Error("Solara HUD could not be created.");
 }
 
@@ -99,6 +100,12 @@ const enemies: Enemy[] = [];
 const projectiles: Projectile[] = [];
 const effects: Effect[] = [];
 
+let floor = 1;
+let runLevel = 1;
+let runXp = 0;
+let xpToNextLevel = 80;
+let nextFloorDelay = .9;
+
 function spawnEnemy(x: number, y: number, boss = false) {
   const group = new THREE.Group();
   const color = boss ? "#dc5c7a" : "#a773d9";
@@ -114,10 +121,43 @@ function spawnEnemy(x: number, y: number, boss = false) {
   group.add(enemyShadow, enemyBody, lifeBg, life);
   group.position.set(x, y, 0);
   scene.add(group);
-  enemies.push({ mesh: group, health: boss ? 360 : 70, maxHealth: boss ? 360 : 70, speed: boss ? .7 : 1.05, radius: boss ? 1.15 : .7, attackTimer: .8, boss });
+  const maxHealth = boss ? 280 + floor * 65 : 48 + floor * 13;
+  enemies.push({ mesh: group, health: maxHealth, maxHealth, speed: boss ? .72 + floor * .015 : 1 + floor * .018, radius: boss ? 1.15 : .7, attackTimer: .8, boss });
 }
 
-[[-4, 1], [3, 2], [5, -2], [-5, -4], [1, -5], [0, 5]].forEach(([x, y]) => spawnEnemy(x, y));
+function startFloor() {
+  const isBossFloor = floor % 5 === 0;
+  const count = isBossFloor ? 1 : Math.min(3 + floor, 15);
+  for (let index = 0; index < count; index += 1) {
+    const angle = (Math.PI * 2 * index) / count + Math.random() * .4;
+    const distance = isBossFloor ? 8 : 7 + Math.random() * 4;
+    spawnEnemy(player.position.x + Math.cos(angle) * distance, player.position.y + Math.sin(angle) * distance, isBossFloor);
+  }
+}
+
+function gainXp(amount: number) {
+  runXp += amount;
+  while (runXp >= xpToNextLevel) {
+    runXp -= xpToNextLevel;
+    runLevel += 1;
+    xpToNextLevel = Math.floor(xpToNextLevel * 1.22);
+    combat.heal(22);
+    combat.grantShield(12);
+  }
+}
+
+function restartFloorRush() {
+  for (const enemy of enemies.splice(0)) scene.remove(enemy.mesh);
+  floor = 1;
+  runLevel = 1;
+  runXp = 0;
+  xpToNextLevel = 80;
+  nextFloorDelay = .9;
+  combat = new CombatState(kit.maxHealth);
+  player.position.set(0, 0, 0);
+}
+
+startFloor();
 
 function addEffect(position: THREE.Vector2, radius: number, color: string, life = .34) {
   const mesh = new THREE.Mesh(new THREE.RingGeometry(Math.max(.12, radius * .62), radius, 20), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .92, side: THREE.DoubleSide }));
@@ -132,6 +172,7 @@ function damageEnemy(enemy: Enemy, amount: number, color: string) {
   if (life) life.scale.x = enemy.health / enemy.maxHealth;
   addEffect(new THREE.Vector2(enemy.mesh.position.x, enemy.mesh.position.y), enemy.radius + .18, color, .18);
   if (enemy.health <= 0) {
+    gainXp(enemy.boss ? 90 + floor * 12 : 16 + floor * 2);
     scene.remove(enemy.mesh);
     enemies.splice(enemies.indexOf(enemy), 1);
   }
@@ -202,7 +243,7 @@ function useAbility(ability: AbilityDefinition) {
 
   switch (ability.kind) {
     case "projectile":
-      fireProjectile(ability.damage, kit.color, ability.id === "piercing-arrow" ? 23 : 18, ability.id === "piercing-arrow" ? .25 : .18);
+      fireProjectile(ability.damage * (1 + (runLevel - 1) * .08), kit.color, ability.id === "piercing-arrow" ? 23 : 18, ability.id === "piercing-arrow" ? .25 : .18);
       break;
     case "shield":
       combat.grantShield(55);
@@ -210,16 +251,16 @@ function useAbility(ability: AbilityDefinition) {
       break;
     case "dash":
       startDash(ability.id === "shadow-step" ? 1.7 : 1.35);
-      damageInArea(playerPoint, 1.35, ability.damage, kit.color);
+      damageInArea(playerPoint, 1.35, ability.damage * (1 + (runLevel - 1) * .08), kit.color);
       break;
     case "stealth":
       hasteRemaining = 2.4;
       body.material.opacity = .38;
       body.material.transparent = true;
-      fireProjectile(ability.damage, kit.color, 19, .22);
+      fireProjectile(ability.damage * (1 + (runLevel - 1) * .08), kit.color, 19, .22);
       break;
     default:
-      damageInArea(target, ability.range, ability.damage, kit.color);
+      damageInArea(target, ability.range, ability.damage * (1 + (runLevel - 1) * .08), kit.color);
       break;
   }
 }
@@ -293,6 +334,7 @@ window.addEventListener("keydown", (event) => {
   if (event.code === "Digit5") usePotion();
   if (event.code === "Digit6") useShield();
   if (event.code === "Digit7") spawnBoss();
+  if (event.code === "Enter" && !combat.snapshot.alive) restartFloorRush();
 });
 
 window.addEventListener("keyup", (event) => keys.delete(event.code));
@@ -314,7 +356,7 @@ renderer.domElement.addEventListener("pointerdown", (event) => {
   }
   if (event.button === 0 && combat.canUse("basic-attack")) {
     combat.startCooldown("basic-attack", .38);
-    fireProjectile(kit.basicAttackDamage, "#fff0d6", 19, .13);
+    fireProjectile(kit.basicAttackDamage * (1 + (runLevel - 1) * .08), "#fff0d6", 19, .13);
   }
 });
 renderer.domElement.addEventListener("pointerup", (event) => {
@@ -357,6 +399,20 @@ function updateEnemies(delta: number) {
   }
 }
 
+function updateFloorRush(delta: number) {
+  if (!combat.snapshot.alive) return;
+  if (enemies.length > 0) {
+    nextFloorDelay = .9;
+    return;
+  }
+  nextFloorDelay -= delta;
+  if (nextFloorDelay <= 0) {
+    floor = Math.min(floor + 1, 40);
+    startFloor();
+    nextFloorDelay = .9;
+  }
+}
+
 function updateEffects(delta: number) {
   for (const effect of [...effects]) {
     effect.life -= delta;
@@ -375,6 +431,9 @@ function updateHud() {
   healthFill!.style.width = (snapshot.health / snapshot.maxHealth) * 100 + "%";
   shieldFill!.style.width = (snapshot.shield / snapshot.maxShield) * 100 + "%";
   healthStatus!.textContent = Math.ceil(snapshot.health) + " / " + snapshot.maxHealth;
+  floorStatus!.textContent = combat.snapshot.alive
+    ? "FLOOR " + floor + " · LEVEL " + runLevel + " · XP " + runXp + "/" + xpToNextLevel
+    : "RUN ENDED · ENTER TO RESTART";
   dashStatus!.textContent = dashCooldownRemaining <= 0 ? "DASH READY" : "DASH " + Math.round((1 - dashCooldownRemaining / 3) * 100) + "%";
   dashStatus!.style.color = dashCooldownRemaining <= 0 ? "#ffb257" : "#9cabb7";
   positionStatus!.textContent = "X " + Math.round(player.position.x) + " · Y " + Math.round(player.position.y);
@@ -405,6 +464,7 @@ function render(now: number) {
   updateAim();
   updateProjectiles(delta);
   updateEnemies(delta);
+  updateFloorRush(delta);
   updateEffects(delta);
 
   const cameraTarget = new THREE.Vector3(player.position.x, player.position.y, .35);
