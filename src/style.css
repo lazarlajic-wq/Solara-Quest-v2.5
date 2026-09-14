@@ -21,3 +21,11 @@ p { margin: 0; font-size: 13px; color: #c5ced8; }
 .abilities span { background: rgba(9, 13, 20, .82); border: 1px solid rgba(255, 174, 78, .25); padding: 7px 9px; border-radius: 7px; font-size: 11px; color: #cbd2dc; min-width: 105px; }
 .abilities span.cooldown { opacity: .55; }
 .abilities b { color: #ffb257; margin-right: 4px; }
+
+.upgrade-overlay { pointer-events: auto; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 20px; background: rgba(5, 8, 13, .45); }
+.upgrade-overlay[hidden] { display: none; }
+.upgrade-card { width: min(250px, 30vw); min-height: 155px; cursor: pointer; text-align: left; color: #f7efe6; background: linear-gradient(145deg, rgba(32, 42, 56, .98), rgba(11, 16, 26, .98)); border: 1px solid rgba(255, 178, 87, .55); border-radius: 12px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+.upgrade-card:hover { transform: translateY(-5px); border-color: #ffbf68; }
+.upgrade-card small { display: block; color: #ffb257; letter-spacing: .12em; font-weight: 800; margin-bottom: 9px; }
+.upgrade-card strong { display: block; font-size: 18px; margin-bottom: 8px; }
+.upgrade-card span { color: #cbd2dc; font-size: 13px; }
