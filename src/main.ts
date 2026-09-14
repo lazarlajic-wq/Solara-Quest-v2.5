@@ -96,7 +96,10 @@ let floor = 1;
 let runLevel = 1;
 let runXp = 0;
 let xpToNextLevel = 80;
-let nextFloorDelay = .9;
+let floorClearCountdown = -1;
+let floorRewardPending = false;
+let upgradeSecondsRemaining = 0;
+let pendingChoices: Upgrade[] = [];
 let runComplete = false;
 let runStats = createRunStats();
 let upgradeOpen = false;
@@ -154,23 +157,49 @@ function startFloor() {
   for (let index = 0; index < count; index += 1) spawnAroundPlayer(index, count, "mob");
 }
 
+function resolveUpgrade(upgrade: Upgrade) {
+  upgrade.apply(runStats);
+  upgradeOpen = false;
+  upgradeOverlay!.hidden = true;
+  combat.heal(22);
+  combat.grantShield(12 * runStats.shieldMultiplier);
+
+  if (floorRewardPending) {
+    floorRewardPending = false;
+    if (floor >= 40) {
+      runComplete = true;
+    } else {
+      floor += 1;
+      startFloor();
+    }
+  }
+}
+
 function openUpgradeSelection() {
-  const choices = drawUpgradeChoices();
+  pendingChoices = drawUpgradeChoices();
   upgradeOpen = true;
+  upgradeSecondsRemaining = 15;
   upgradeOverlay!.hidden = false;
-  upgradeOverlay!.replaceChildren(...choices.map((upgrade) => {
+  upgradeOverlay!.replaceChildren(...pendingChoices.map((upgrade) => {
     const card = document.createElement("button");
     card.className = "upgrade-card";
-    card.innerHTML = "<small>LEVEL UP · CHOOSE ONE</small><strong>" + upgrade.title + "</strong><span>" + upgrade.description + "</span>";
+    card.innerHTML = "<small>FLOOR CLEARED · 15 SEC</small><strong>" + upgrade.title + "</strong><span>" + upgrade.description + "</span>";
     card.addEventListener("click", () => {
-      upgrade.apply(runStats);
-      upgradeOpen = false;
-      upgradeOverlay!.hidden = true;
-      combat.heal(22);
-      combat.grantShield(12 * runStats.shieldMultiplier);
+      if (upgradeOpen) resolveUpgrade(upgrade);
     });
     return card;
   }));
+}
+
+function updateUpgradeTimer(delta: number) {
+  if (!upgradeOpen) return;
+  upgradeSecondsRemaining -= delta;
+  if (upgradeSecondsRemaining <= 0) {
+    resolveUpgrade(pendingChoices[Math.floor(Math.random() * pendingChoices.length)]);
+    return;
+  }
+  const label = upgradeOverlay!.querySelector("small");
+  if (label) label.textContent = "FLOOR CLEARED · " + Math.ceil(upgradeSecondsRemaining) + " SEC";
 }
 
 function gainXp(amount: number) {
@@ -179,7 +208,6 @@ function gainXp(amount: number) {
     runXp -= xpToNextLevel;
     runLevel += 1;
     xpToNextLevel = Math.floor(xpToNextLevel * 1.22);
-    openUpgradeSelection();
   }
 }
 
@@ -189,7 +217,10 @@ function restartFloorRush() {
   runLevel = 1;
   runXp = 0;
   xpToNextLevel = 80;
-  nextFloorDelay = .9;
+  floorClearCountdown = -1;
+  floorRewardPending = false;
+  upgradeSecondsRemaining = 0;
+  pendingChoices = [];
   runComplete = false;
   runStats = createRunStats();
   upgradeOpen = false;
@@ -449,18 +480,18 @@ function updateEnemies(delta: number) {
 function updateFloorRush(delta: number) {
   if (!combat.snapshot.alive || runComplete || upgradeOpen) return;
   if (enemies.length > 0) {
-    nextFloorDelay = .9;
+    floorClearCountdown = -1;
     return;
   }
-  nextFloorDelay -= delta;
-  if (nextFloorDelay <= 0) {
-    if (floor >= 40) {
-      runComplete = true;
-      return;
-    }
-    floor += 1;
-    startFloor();
-    nextFloorDelay = .9;
+  if (floorClearCountdown < 0) {
+    floorClearCountdown = 2;
+    return;
+  }
+  floorClearCountdown -= delta;
+  if (floorClearCountdown <= 0) {
+    floorClearCountdown = -1;
+    floorRewardPending = true;
+    openUpgradeSelection();
   }
 }
 
@@ -497,6 +528,7 @@ function render(now: number) {
   const delta = Math.min((now - lastTime) / 1000, .05);
   lastTime = now;
   if (!upgradeOpen) combat.update(delta);
+  updateUpgradeTimer(delta);
   dashCooldownRemaining = Math.max(0, dashCooldownRemaining - delta);
   hasteRemaining = Math.max(0, hasteRemaining - delta);
   if (hasteRemaining <= 0) body.material.opacity = 1;
