@@ -23,15 +23,20 @@ const lootStatus = document.querySelector<HTMLSpanElement>("#loot-status");
 const interactionStatus = document.querySelector<HTMLSpanElement>("#interaction-status");
 const objectiveStatus = document.querySelector<HTMLSpanElement>("#objective-status");
 const inviteButton = document.querySelector<HTMLButtonElement>("#invite-button");
+const pauseOverlay = document.querySelector<HTMLElement>("#pause-overlay");
+const resumeButton = document.querySelector<HTMLButtonElement>("#resume-button");
+const villageButton = document.querySelector<HTMLButtonElement>("#village-button");
+const cameraSensitivityInput = document.querySelector<HTMLInputElement>("#camera-sensitivity");
+const pixelScaleInput = document.querySelector<HTMLInputElement>("#pixel-scale");
 
-if (!app || !classPicker || !abilitiesHud || !upgradeOverlay || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill || !lootStatus || !interactionStatus || !objectiveStatus || !inviteButton) {
+if (!app || !classPicker || !abilitiesHud || !upgradeOverlay || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill || !lootStatus || !interactionStatus || !objectiveStatus || !inviteButton || !pauseOverlay || !resumeButton || !villageButton || !cameraSensitivityInput || !pixelScaleInput) {
   throw new Error("Solara HUD could not be created.");
 }
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
-const PIXEL_SCALE = .82;
+let pixelScale = .82;
 renderer.setPixelRatio(1);
-renderer.setSize(Math.floor(window.innerWidth * PIXEL_SCALE), Math.floor(window.innerHeight * PIXEL_SCALE), false);
+renderer.setSize(Math.floor(window.innerWidth * pixelScale), Math.floor(window.innerHeight * pixelScale), false);
 renderer.domElement.style.width = "100vw";
 renderer.domElement.style.height = "100vh";
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -53,7 +58,7 @@ camera.position.set(0, 0, 10);
 function resizeCamera() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(Math.floor(window.innerWidth * PIXEL_SCALE), Math.floor(window.innerHeight * PIXEL_SCALE), false);
+  renderer.setSize(Math.floor(window.innerWidth * pixelScale), Math.floor(window.innerHeight * pixelScale), false);
 }
 resizeCamera();
 
@@ -64,6 +69,8 @@ let isCameraRotating = false;
 type GameState = "lobby" | "floorRush";
 let gameState: GameState = "lobby";
 let classMenuOpen = false;
+let pauseOpen = false;
+let cameraSensitivity = 1;
 let lobbyMessage = "Explore the village · E to interact";
 
 const player = new THREE.Group();
@@ -476,6 +483,12 @@ function updateAbilityHud() {
 
 updateClassHud();
 
+function setPauseMenu(open: boolean) {
+  pauseOpen = open;
+  pauseOverlay!.hidden = !open;
+  if (open) keys.clear();
+}
+
 function tryLobbyInteraction() {
   if (gameState !== "lobby") return;
   const position = new THREE.Vector2(player.position.x, player.position.y);
@@ -497,6 +510,19 @@ function tryLobbyInteraction() {
   lobbyMessage = "Move closer to the hut, hell portal or dragon monument";
 }
 
+resumeButton!.addEventListener("click", () => setPauseMenu(false));
+villageButton!.addEventListener("click", () => {
+  setPauseMenu(false);
+  enterLobby();
+});
+cameraSensitivityInput!.addEventListener("input", () => {
+  cameraSensitivity = Number(cameraSensitivityInput!.value);
+});
+pixelScaleInput!.addEventListener("input", () => {
+  pixelScale = Number(pixelScaleInput!.value);
+  resizeCamera();
+});
+
 inviteButton!.addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(window.location.href);
@@ -507,12 +533,16 @@ inviteButton!.addEventListener("click", async () => {
 });
 
 window.addEventListener("keydown", (event) => {
-  const controls = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "KeyE", "KeyB"];
+  const controls = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "KeyE", "Escape"];
   if (controls.includes(event.code)) event.preventDefault();
+  if (event.code === "Escape") {
+    if (!event.repeat) setPauseMenu(!pauseOpen);
+    return;
+  }
+  if (pauseOpen) return;
   keys.add(event.code);
   if (event.repeat) return;
   if (event.code === "KeyE") tryLobbyInteraction();
-  if (event.code === "KeyB" && gameState === "floorRush") enterLobby();
   if (event.code === "ShiftLeft" || event.code === "ShiftRight") startDash(kit.dashDistanceMultiplier);
   const abilitiesByKey: Record<string, AbilityDefinition | undefined> = { Digit1: kit.abilities[0], Digit2: kit.abilities[1], Digit3: kit.abilities[2], Digit4: kit.abilities[3] };
   const selectedAbility = abilitiesByKey[event.code];
@@ -527,8 +557,8 @@ window.addEventListener("keyup", (event) => keys.delete(event.code));
 renderer.domElement.addEventListener("contextmenu", (event) => event.preventDefault());
 renderer.domElement.addEventListener("pointermove", (event) => {
   if (isCameraRotating) {
-    cameraYaw -= event.movementX * .008;
-    cameraPitch = THREE.MathUtils.clamp(cameraPitch + event.movementY * .006, THREE.MathUtils.degToRad(35), THREE.MathUtils.degToRad(65));
+    cameraYaw -= event.movementX * .008 * cameraSensitivity;
+    cameraPitch = THREE.MathUtils.clamp(cameraPitch + event.movementY * .006 * cameraSensitivity, THREE.MathUtils.degToRad(35), THREE.MathUtils.degToRad(65));
     return;
   }
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -540,7 +570,7 @@ renderer.domElement.addEventListener("pointerdown", (event) => {
     renderer.domElement.setPointerCapture(event.pointerId);
     return;
   }
-  if (event.button === 0 && combat.canUse("basic-attack")) {
+  if (event.button === 0 && !pauseOpen && combat.canUse("basic-attack")) {
     combat.startCooldown("basic-attack", .38);
     fireProjectile(kit.basicAttackDamage * (1 + (runLevel - 1) * .08) * runStats.damageMultiplier, "#fff0d6", 19, .13);
   }
@@ -645,12 +675,12 @@ function updateHud() {
   if (gameState === "lobby") {
     objectiveStatus!.textContent = "OBJECTIVE · Explore · E to interact";
   } else if (!combat.snapshot.alive) {
-    objectiveStatus!.textContent = "RUN FAILED · Press B to return to Village";
+    objectiveStatus!.textContent = "RUN FAILED · Press ESC for menu";
   } else if (runComplete) {
-    objectiveStatus!.textContent = "FLOOR RUSH COMPLETE · Press B to return to Village";
+    objectiveStatus!.textContent = "FLOOR RUSH COMPLETE · Press ESC for menu";
   } else {
     const special = floor % 10 === 0 ? "BOSS FLOOR" : floor % 5 === 0 ? "MINI BOSS FLOOR" : "CLEAR THE ARENA";
-    objectiveStatus!.textContent = "OBJECTIVE · " + special + " · " + enemies.length + " foes remaining · B Village";
+    objectiveStatus!.textContent = "OBJECTIVE · " + special + " · " + enemies.length + " foes remaining · ESC menu";
   }
   updateAbilityHud();
 }
@@ -658,32 +688,33 @@ function updateHud() {
 function render(now: number) {
   const delta = Math.min((now - lastTime) / 1000, .05);
   lastTime = now;
-  if (!upgradeOpen) combat.update(delta);
-  updateUpgradeTimer(delta);
-  dashCooldownRemaining = Math.max(0, dashCooldownRemaining - delta);
-  hasteRemaining = Math.max(0, hasteRemaining - delta);
+  const simulationDelta = pauseOpen ? 0 : delta;
+  if (!upgradeOpen && !pauseOpen) combat.update(simulationDelta);
+  updateUpgradeTimer(simulationDelta);
+  dashCooldownRemaining = Math.max(0, dashCooldownRemaining - simulationDelta);
+  hasteRemaining = Math.max(0, hasteRemaining - simulationDelta);
   if (hasteRemaining <= 0) body.material.opacity = 1;
 
   const direction = getMoveDirection();
   const speed = kit.moveSpeed * (hasteRemaining > 0 ? 1.3 : 1) * (1 + runStats.moveSpeedBonus);
   if (dashRemaining > 0) {
-    player.position.x += dashDirection.x * 24 * delta;
-    player.position.y += dashDirection.y * 24 * delta;
-    dashRemaining -= delta;
+    player.position.x += dashDirection.x * 24 * simulationDelta;
+    player.position.y += dashDirection.y * 24 * simulationDelta;
+    dashRemaining -= simulationDelta;
     body.material.color.set("#fff0d6");
   } else {
-    player.position.x += direction.x * speed * delta;
-    player.position.y += direction.y * speed * delta;
+    player.position.x += direction.x * speed * simulationDelta;
+    player.position.y += direction.y * speed * simulationDelta;
     body.material.color.set(kit.color);
   }
 
   updateAim();
-  updateProjectiles(delta);
-  updateLootDrops(delta);
-  updateEnemies(delta);
-  updateFloorRush(delta);
-  updateEffects(delta);
-  vfx.update(delta);
+  updateProjectiles(simulationDelta);
+  updateLootDrops(simulationDelta);
+  updateEnemies(simulationDelta);
+  updateFloorRush(simulationDelta);
+  updateEffects(simulationDelta);
+  vfx.update(simulationDelta);
 
   const cameraTarget = new THREE.Vector3(player.position.x, player.position.y, .35);
   const horizontalDistance = CAMERA_DISTANCE * Math.cos(cameraPitch);
