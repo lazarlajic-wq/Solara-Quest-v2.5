@@ -32,3 +32,13 @@ p { margin: 0; font-size: 13px; color: #c5ced8; }
 
 #invite-button { pointer-events: auto; cursor: pointer; border: 1px solid rgba(255,178,87,.6); background: rgba(10,15,24,.85); color: #ffcb7e; border-radius: 6px; padding: 6px 9px; font: inherit; font-size: 11px; font-weight: 800; }
 #interaction-status { color: #d9e4ec; }
+
+.pause-overlay { pointer-events: auto; position: absolute; inset: 0; display: grid; place-items: center; background: rgba(3, 7, 14, .58); }
+.pause-overlay[hidden] { display: none; }
+.pause-card { width: min(360px, calc(100vw - 36px)); padding: 26px; border: 1px solid rgba(255, 178, 87, .7); border-radius: 14px; background: linear-gradient(145deg, rgba(31, 43, 61, .98), rgba(8, 13, 23, .98)); box-shadow: 0 22px 70px rgba(0,0,0,.62); }
+.pause-card h2 { margin: 4px 0 18px; font-size: 30px; }
+.pause-card button { width: 100%; cursor: pointer; margin: 0 0 9px; padding: 11px; color: #fff4df; font: 800 13px inherit; border: 1px solid rgba(255, 178, 87, .6); border-radius: 7px; background: rgba(255, 164, 74, .14); }
+.pause-card button:hover { background: rgba(255, 164, 74, .28); }
+.pause-card label { display: grid; gap: 7px; margin-top: 15px; color: #cbd6e2; font-size: 12px; font-weight: 800; }
+.pause-card input { accent-color: #ffb257; }
+.pause-card small { display: block; margin-top: 19px; text-align: center; color: #98a8b9; }
