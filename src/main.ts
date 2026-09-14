@@ -269,6 +269,7 @@ function getMoveDirection() {
 }
 
 function startDash(multiplier = 1) {
+  if (upgradeOpen) return;
   if (dashCooldownRemaining > 0 || dashRemaining > 0) return;
   const direction = getMoveDirection();
   dashDirection.copy(direction.lengthSq() === 0 ? new THREE.Vector2(Math.cos(player.rotation.z), Math.sin(player.rotation.z)) : direction);
@@ -277,6 +278,7 @@ function startDash(multiplier = 1) {
 }
 
 function useAbility(ability: AbilityDefinition) {
+  if (upgradeOpen) return;
   if (!combat.canUse(ability.id)) return;
   combat.startCooldown(ability.id, ability.cooldown * (1 - runStats.cooldownReduction));
   const target = new THREE.Vector2(aimWorld.x, aimWorld.y);
@@ -307,6 +309,7 @@ function useAbility(ability: AbilityDefinition) {
 }
 
 function usePotion() {
+  if (upgradeOpen) return;
   if (!combat.canUse("potion")) return;
   combat.startCooldown("potion", 12);
   combat.heal(48 * runStats.potionMultiplier);
@@ -314,6 +317,7 @@ function usePotion() {
 }
 
 function useShield() {
+  if (upgradeOpen) return;
   if (!combat.canUse("shield-item")) return;
   combat.startCooldown("shield-item", 14);
   combat.grantShield(42 * runStats.shieldMultiplier);
@@ -321,6 +325,7 @@ function useShield() {
 }
 
 function spawnBoss() {
+  if (upgradeOpen) return;
   if (!combat.canUse("boss-spawner")) return;
   combat.startCooldown("boss-spawner", 30);
   const target = new THREE.Vector2(aimWorld.x, aimWorld.y);
