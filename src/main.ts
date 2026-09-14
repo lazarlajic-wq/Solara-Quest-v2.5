@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { CLASS_KITS, type AbilityDefinition, type ClassKit, type PlayerClassId } from "./game/classKits";
 import { CombatState } from "./game/combatState";
+import { createPixelWorld } from "./world/createPixelWorld";
 import "./style.css";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -24,10 +25,15 @@ renderer.setSize(Math.floor(window.innerWidth * PIXEL_SCALE), Math.floor(window.
 renderer.domElement.style.width = "100vw";
 renderer.domElement.style.height = "100vh";
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.25;
 app.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color("#101725");
+scene.background = new THREE.Color("#89b5c9");
+createPixelWorld(scene);
 
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, .1, 100);
 camera.up.set(0, 0, 1);
@@ -45,15 +51,8 @@ let cameraYaw = 0;
 let cameraPitch = THREE.MathUtils.degToRad(50);
 let isCameraRotating = false;
 
-const arena = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshBasicMaterial({ color: "#1b2b35" }));
-scene.add(arena);
-const grid = new THREE.GridHelper(80, 80, "#3e5960", "#29434a");
-grid.rotation.x = Math.PI / 2;
-grid.position.z = 0.01;
-scene.add(grid);
-
 function addObstacle(x: number, y: number, width: number, height: number, color = "#374957") {
-  const obstacle = new THREE.Mesh(new THREE.BoxGeometry(width, height, 0.35), new THREE.MeshBasicMaterial({ color }));
+  const obstacle = new THREE.Mesh(new THREE.BoxGeometry(width, height, 0.35), new THREE.MeshStandardMaterial({ color, roughness: .82 }));
   obstacle.position.set(x, y, 0.2);
   scene.add(obstacle);
 }
@@ -62,27 +61,12 @@ addObstacle(8, -4, 3, 4);
 addObstacle(-3, -7, 6, 1);
 addObstacle(8, 5, 2.5, 2.5, "#54454f");
 
-function addTree(x: number, y: number, scale = 1) {
-  const tree = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.BoxGeometry(.32 * scale, .32 * scale, 1.1 * scale), new THREE.MeshBasicMaterial({ color: "#5d4130" }));
-  trunk.position.z = .55 * scale;
-  const leaves = new THREE.Mesh(new THREE.BoxGeometry(1.18 * scale, 1.18 * scale, .8 * scale), new THREE.MeshBasicMaterial({ color: "#3d805b" }));
-  leaves.position.z = 1.35 * scale;
-  const highlight = new THREE.Mesh(new THREE.BoxGeometry(.78 * scale, .78 * scale, .24 * scale), new THREE.MeshBasicMaterial({ color: "#70b875" }));
-  highlight.position.set(-.12 * scale, -.12 * scale, 1.82 * scale);
-  tree.add(trunk, leaves, highlight);
-  tree.position.set(x, y, 0);
-  scene.add(tree);
-}
-[[-10, 7, 1.1], [-8, -1, .8], [-1, 8, 1], [6, 7, .9], [11, 2, 1.15], [10, -8, .9], [-9, -8, 1], [3, -9, .75]]
-  .forEach(([x, y, scale]) => addTree(x, y, scale));
-
 const player = new THREE.Group();
 const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.72, 8), new THREE.MeshBasicMaterial({ color: "#081019", transparent: true, opacity: 0.55 }));
 shadow.scale.set(1.15, 0.62, 1);
-const body = new THREE.Mesh(new THREE.BoxGeometry(.88, .88, 1.06), new THREE.MeshBasicMaterial({ color: "#ff9f43" }));
+const body = new THREE.Mesh(new THREE.BoxGeometry(.88, .88, 1.06), new THREE.MeshStandardMaterial({ color: "#ff9f43", roughness: .8 }));
 body.position.z = .62;
-const facing = new THREE.Mesh(new THREE.BoxGeometry(.16, .82, .18), new THREE.MeshBasicMaterial({ color: "#fff0d6" }));
+const facing = new THREE.Mesh(new THREE.BoxGeometry(.16, .82, .18), new THREE.MeshStandardMaterial({ color: "#fff0d6", roughness: .7, emissive: "#473221", emissiveIntensity: .12 }));
 facing.position.set(.62, 0, .68);
 player.add(shadow, body, facing);
 scene.add(player);
