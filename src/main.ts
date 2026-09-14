@@ -299,8 +299,6 @@ function restartFloorRush() {
   startFloor();
 }
 
-enterLobby();
-
 function addEffect(position: THREE.Vector2, radius: number, color: string, life = .34) {
   const mesh = new THREE.Mesh(new THREE.RingGeometry(Math.max(.12, radius * .62), radius, 20), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .92, side: THREE.DoubleSide }));
   mesh.position.set(position.x, position.y, .22);
