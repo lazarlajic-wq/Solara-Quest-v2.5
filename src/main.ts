@@ -1,12 +1,14 @@
 import * as THREE from "three";
 import { CLASS_KITS, type AbilityDefinition, type ClassKit, type PlayerClassId } from "./game/classKits";
 import { CombatState } from "./game/combatState";
+import { createRunStats, drawUpgradeChoices, type Upgrade } from "./game/upgrades";
 import { createPixelWorld } from "./world/createPixelWorld";
 import "./style.css";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 const classPicker = document.querySelector<HTMLDivElement>("#class-picker");
 const abilitiesHud = document.querySelector<HTMLElement>("#abilities");
+const upgradeOverlay = document.querySelector<HTMLElement>("#upgrade-overlay");
 const floorStatus = document.querySelector<HTMLSpanElement>("#floor-status");
 const dashStatus = document.querySelector<HTMLSpanElement>("#dash-status");
 const positionStatus = document.querySelector<HTMLSpanElement>("#position-status");
@@ -15,7 +17,7 @@ const healthStatus = document.querySelector<HTMLSpanElement>("#health-status");
 const healthFill = document.querySelector<HTMLElement>("#health-fill");
 const shieldFill = document.querySelector<HTMLElement>("#shield-fill");
 
-if (!app || !classPicker || !abilitiesHud || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill) {
+if (!app || !classPicker || !abilitiesHud || !upgradeOverlay || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill) {
   throw new Error("Solara HUD could not be created.");
 }
 
@@ -96,6 +98,8 @@ let runXp = 0;
 let xpToNextLevel = 80;
 let nextFloorDelay = .9;
 let runComplete = false;
+let runStats = createRunStats();
+let upgradeOpen = false;
 
 function spawnEnemy(x: number, y: number, tier: Enemy["tier"] = "mob") {
   const group = new THREE.Group();
@@ -150,14 +154,32 @@ function startFloor() {
   for (let index = 0; index < count; index += 1) spawnAroundPlayer(index, count, "mob");
 }
 
+function openUpgradeSelection() {
+  const choices = drawUpgradeChoices();
+  upgradeOpen = true;
+  upgradeOverlay!.hidden = false;
+  upgradeOverlay!.replaceChildren(...choices.map((upgrade) => {
+    const card = document.createElement("button");
+    card.className = "upgrade-card";
+    card.innerHTML = "<small>LEVEL UP · CHOOSE ONE</small><strong>" + upgrade.title + "</strong><span>" + upgrade.description + "</span>";
+    card.addEventListener("click", () => {
+      upgrade.apply(runStats);
+      upgradeOpen = false;
+      upgradeOverlay!.hidden = true;
+      combat.heal(22);
+      combat.grantShield(12 * runStats.shieldMultiplier);
+    });
+    return card;
+  }));
+}
+
 function gainXp(amount: number) {
   runXp += amount;
   while (runXp >= xpToNextLevel) {
     runXp -= xpToNextLevel;
     runLevel += 1;
     xpToNextLevel = Math.floor(xpToNextLevel * 1.22);
-    combat.heal(22);
-    combat.grantShield(12);
+    openUpgradeSelection();
   }
 }
 
@@ -169,6 +191,9 @@ function restartFloorRush() {
   xpToNextLevel = 80;
   nextFloorDelay = .9;
   runComplete = false;
+  runStats = createRunStats();
+  upgradeOpen = false;
+  upgradeOverlay!.hidden = true;
   combat = new CombatState(kit.maxHealth);
   player.position.set(0, 0, 0);
 }
@@ -248,35 +273,35 @@ function startDash(multiplier = 1) {
   const direction = getMoveDirection();
   dashDirection.copy(direction.lengthSq() === 0 ? new THREE.Vector2(Math.cos(player.rotation.z), Math.sin(player.rotation.z)) : direction);
   dashRemaining = .13 * multiplier;
-  dashCooldownRemaining = 3;
+  dashCooldownRemaining = 3 * runStats.dashCooldownMultiplier;
 }
 
 function useAbility(ability: AbilityDefinition) {
   if (!combat.canUse(ability.id)) return;
-  combat.startCooldown(ability.id, ability.cooldown);
+  combat.startCooldown(ability.id, ability.cooldown * (1 - runStats.cooldownReduction));
   const target = new THREE.Vector2(aimWorld.x, aimWorld.y);
   const playerPoint = new THREE.Vector2(player.position.x, player.position.y);
 
   switch (ability.kind) {
     case "projectile":
-      fireProjectile(ability.damage * (1 + (runLevel - 1) * .08), kit.color, ability.id === "piercing-arrow" ? 23 : 18, ability.id === "piercing-arrow" ? .25 : .18);
+      fireProjectile(ability.damage * (1 + (runLevel - 1) * .08) * runStats.damageMultiplier, kit.color, ability.id === "piercing-arrow" ? 23 : 18, (ability.id === "piercing-arrow" ? .25 : .18) * runStats.projectileSizeMultiplier);
       break;
     case "shield":
-      combat.grantShield(55);
+      combat.grantShield(55 * runStats.shieldMultiplier);
       addEffect(playerPoint, 1.2, "#65c9ff", .55);
       break;
     case "dash":
       startDash(ability.id === "shadow-step" ? 1.7 : 1.35);
-      damageInArea(playerPoint, 1.35, ability.damage * (1 + (runLevel - 1) * .08), kit.color);
+      damageInArea(playerPoint, 1.35, ability.damage * (1 + (runLevel - 1) * .08) * runStats.damageMultiplier, kit.color);
       break;
     case "stealth":
       hasteRemaining = 2.4;
       body.material.opacity = .38;
       body.material.transparent = true;
-      fireProjectile(ability.damage * (1 + (runLevel - 1) * .08), kit.color, 19, .22);
+      fireProjectile(ability.damage * (1 + (runLevel - 1) * .08) * runStats.damageMultiplier, kit.color, 19, .22);
       break;
     default:
-      damageInArea(target, ability.range, ability.damage * (1 + (runLevel - 1) * .08), kit.color);
+      damageInArea(target, ability.range, ability.damage * (1 + (runLevel - 1) * .08) * runStats.damageMultiplier, kit.color);
       break;
   }
 }
@@ -284,14 +309,14 @@ function useAbility(ability: AbilityDefinition) {
 function usePotion() {
   if (!combat.canUse("potion")) return;
   combat.startCooldown("potion", 12);
-  combat.heal(48);
+  combat.heal(48 * runStats.potionMultiplier);
   addEffect(new THREE.Vector2(player.position.x, player.position.y), 1, "#77e5a6", .45);
 }
 
 function useShield() {
   if (!combat.canUse("shield-item")) return;
   combat.startCooldown("shield-item", 14);
-  combat.grantShield(42);
+  combat.grantShield(42 * runStats.shieldMultiplier);
   addEffect(new THREE.Vector2(player.position.x, player.position.y), 1.25, "#65c9ff", .55);
 }
 
@@ -372,7 +397,7 @@ renderer.domElement.addEventListener("pointerdown", (event) => {
   }
   if (event.button === 0 && combat.canUse("basic-attack")) {
     combat.startCooldown("basic-attack", .38);
-    fireProjectile(kit.basicAttackDamage * (1 + (runLevel - 1) * .08), "#fff0d6", 19, .13);
+    fireProjectile(kit.basicAttackDamage * (1 + (runLevel - 1) * .08) * runStats.damageMultiplier, "#fff0d6", 19, .13);
   }
 });
 renderer.domElement.addEventListener("pointerup", (event) => {
@@ -398,6 +423,7 @@ function updateProjectiles(delta: number) {
 }
 
 function updateEnemies(delta: number) {
+  if (upgradeOpen) return;
   for (const enemy of enemies) {
     const direction = new THREE.Vector2(player.position.x - enemy.mesh.position.x, player.position.y - enemy.mesh.position.y);
     const distance = direction.length();
@@ -416,7 +442,7 @@ function updateEnemies(delta: number) {
 }
 
 function updateFloorRush(delta: number) {
-  if (!combat.snapshot.alive || runComplete) return;
+  if (!combat.snapshot.alive || runComplete || upgradeOpen) return;
   if (enemies.length > 0) {
     nextFloorDelay = .9;
     return;
@@ -465,13 +491,13 @@ function updateHud() {
 function render(now: number) {
   const delta = Math.min((now - lastTime) / 1000, .05);
   lastTime = now;
-  combat.update(delta);
+  if (!upgradeOpen) combat.update(delta);
   dashCooldownRemaining = Math.max(0, dashCooldownRemaining - delta);
   hasteRemaining = Math.max(0, hasteRemaining - delta);
   if (hasteRemaining <= 0) body.material.opacity = 1;
 
   const direction = getMoveDirection();
-  const speed = kit.moveSpeed * (hasteRemaining > 0 ? 1.3 : 1);
+  const speed = kit.moveSpeed * (hasteRemaining > 0 ? 1.3 : 1) * (1 + runStats.moveSpeedBonus);
   if (dashRemaining > 0) {
     player.position.x += dashDirection.x * 24 * delta;
     player.position.y += dashDirection.y * 24 * delta;
