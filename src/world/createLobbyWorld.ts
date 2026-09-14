@@ -76,8 +76,8 @@ export function createLobbyWorld(scene: THREE.Scene) {
   const ambient = new THREE.HemisphereLight("#d3ddff", "#1c283a", 2.35);
   const sun = new THREE.DirectionalLight("#ffe5b5", 3.5);
   sun.position.set(-12, -10, 22);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.castShadow = false;
+  sun.shadow.mapSize.set(512, 512);
   sun.shadow.camera.left = -22;
   sun.shadow.camera.right = 22;
   sun.shadow.camera.top = 22;
@@ -246,8 +246,8 @@ export function createLobbyWorld(scene: THREE.Scene) {
       model.position.z = .02;
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
+          child.castShadow = false;
+          child.receiveShadow = false;
         }
       });
       portalFallback.visible = false;
