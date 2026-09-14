@@ -227,6 +227,7 @@ function restartFloorRush() {
   upgradeOverlay!.hidden = true;
   combat = new CombatState(kit.maxHealth);
   player.position.set(0, 0, 0);
+  startFloor();
 }
 
 startFloor();
