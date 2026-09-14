@@ -28,8 +28,12 @@ const resumeButton = document.querySelector<HTMLButtonElement>("#resume-button")
 const villageButton = document.querySelector<HTMLButtonElement>("#village-button");
 const cameraSensitivityInput = document.querySelector<HTMLInputElement>("#camera-sensitivity");
 const pixelScaleInput = document.querySelector<HTMLInputElement>("#pixel-scale");
+const royaleOverlay = document.querySelector<HTMLElement>("#royale-overlay");
+const royalStartButton = document.querySelector<HTMLButtonElement>("#royale-start-button");
+const royalCloseButton = document.querySelector<HTMLButtonElement>("#royale-close-button");
+const royalModeButtons = document.querySelectorAll<HTMLButtonElement>("[data-royal-mode]");
 
-if (!app || !classPicker || !abilitiesHud || !upgradeOverlay || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill || !lootStatus || !interactionStatus || !objectiveStatus || !inviteButton || !pauseOverlay || !resumeButton || !villageButton || !cameraSensitivityInput || !pixelScaleInput) {
+if (!app || !classPicker || !abilitiesHud || !upgradeOverlay || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill || !lootStatus || !interactionStatus || !objectiveStatus || !inviteButton || !pauseOverlay || !resumeButton || !villageButton || !cameraSensitivityInput || !pixelScaleInput || !royaleOverlay || !royalStartButton || !royalCloseButton) {
   throw new Error("Solara HUD could not be created.");
 }
 
@@ -66,12 +70,16 @@ const CAMERA_DISTANCE = 17;
 let cameraYaw = 0;
 let cameraPitch = THREE.MathUtils.degToRad(50);
 let isCameraRotating = false;
-type GameState = "lobby" | "floorRush";
+type GameState = "lobby" | "floorRush" | "royale";
 let gameState: GameState = "lobby";
 let classMenuOpen = false;
 let pauseOpen = false;
 let cameraSensitivity = 1;
 let lobbyMessage = "Explore the village · E to interact";
+type RoyalMode = "solo" | "duo" | "squad";
+let royalMode: RoyalMode = "solo";
+let royaleEliminations = 0;
+let royaleComplete = false;
 
 const player = new THREE.Group();
 const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.72, 8), new THREE.MeshBasicMaterial({ color: "#081019", transparent: true, opacity: 0.55 }));
@@ -197,6 +205,7 @@ function enterLobby() {
   for (const enemy of enemies.splice(0)) scene.remove(enemy.mesh);
   scene.remove(floorMap);
   floorMap = createLobbyWorld(scene);
+  royaleOverlay!.hidden = true;
   gameState = "lobby";
   classMenuOpen = false;
   lobbyMessage = "Explore the village · E to interact";
@@ -227,6 +236,27 @@ function startFloor() {
   }
   const count = Math.min(3 + floor + Math.floor(Math.random() * 3), 18);
   for (let index = 0; index < count; index += 1) spawnAroundPlayer(index, count, "mob");
+}
+
+function startRoyalePractice() {
+  for (const enemy of enemies.splice(0)) scene.remove(enemy.mesh);
+  for (const drop of lootDrops.splice(0)) scene.remove(drop.mesh);
+  gameState = "royale";
+  classMenuOpen = false;
+  scene.remove(floorMap);
+  floorMap = createPixelWorld(scene, 71 + (royalMode === "solo" ? 1 : royalMode === "duo" ? 2 : 3));
+  player.position.set(0, 0, 0);
+  combat = new CombatState(kit.maxHealth);
+  royaleEliminations = 0;
+  royaleComplete = false;
+  royaleOverlay!.hidden = true;
+  const rivalCount = royalMode === "solo" ? 15 : royalMode === "duo" ? 11 : 7;
+  for (let index = 0; index < rivalCount; index += 1) {
+    const angle = (Math.PI * 2 * index) / rivalCount;
+    const distance = 9 + (index % 3) * 1.8;
+    spawnEnemy(Math.cos(angle) * distance, Math.sin(angle) * distance, index % 6 === 0 ? "miniBoss" : "mob");
+  }
+  lobbyMessage = "Royal practice started";
 }
 
 function resolveUpgrade(upgrade: Upgrade) {
@@ -323,6 +353,7 @@ function damageEnemy(enemy: Enemy, amount: number, color: string) {
   vfx.impact(enemy.mesh.position, color);
   if (enemy.health <= 0) {
     spawnLoot(enemy);
+    if (gameState === "royale") royaleEliminations += 1;
     gainXp(enemy.tier === "boss" ? 110 + floor * 14 : enemy.tier === "miniBoss" ? 46 + floor * 6 : 16 + floor * 2);
     scene.remove(enemy.mesh);
     enemies.splice(enemies.indexOf(enemy), 1);
@@ -483,6 +514,11 @@ function updateAbilityHud() {
 
 updateClassHud();
 
+function openRoyaleSetup() {
+  royaleOverlay!.hidden = false;
+  royalModeButtons.forEach((button) => button.classList.toggle("active", button.dataset.royalMode === royalMode));
+}
+
 function setPauseMenu(open: boolean) {
   pauseOpen = open;
   pauseOverlay!.hidden = !open;
@@ -504,11 +540,19 @@ function tryLobbyInteraction() {
     return;
   }
   if (position.distanceTo(LOBBY_POINTS.royalDragon) < 3) {
-    lobbyMessage = "Solara Royale lobby is next – match generator is being connected";
+    lobbyMessage = "Choose your Solara Royale queue";
+    openRoyaleSetup();
     return;
   }
   lobbyMessage = "Move closer to the hut, hell portal or dragon monument";
 }
+
+royalModeButtons.forEach((button) => button.addEventListener("click", () => {
+  royalMode = button.dataset.royalMode as RoyalMode;
+  openRoyaleSetup();
+}));
+royalCloseButton!.addEventListener("click", () => { royaleOverlay!.hidden = true; });
+royalStartButton!.addEventListener("click", startRoyalePractice);
 
 resumeButton!.addEventListener("click", () => setPauseMenu(false));
 villageButton!.addEventListener("click", () => {
@@ -536,7 +580,9 @@ window.addEventListener("keydown", (event) => {
   const controls = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "KeyE", "Escape"];
   if (controls.includes(event.code)) event.preventDefault();
   if (event.code === "Escape") {
-    if (!event.repeat) setPauseMenu(!pauseOpen);
+    if (event.repeat) return;
+    if (!royaleOverlay!.hidden) royaleOverlay!.hidden = true;
+    else setPauseMenu(!pauseOpen);
     return;
   }
   if (pauseOpen) return;
@@ -656,7 +702,9 @@ function updateHud() {
   healthStatus!.textContent = Math.ceil(snapshot.health) + " / " + snapshot.maxHealth;
   floorStatus!.textContent = gameState === "lobby"
     ? "SOLARA VILLAGE · " + kit.name
-    : !combat.snapshot.alive
+    : gameState === "royale"
+      ? "SOLARA ROYALE · " + royalMode.toUpperCase() + " · RIVALS " + enemies.length
+      : !combat.snapshot.alive
       ? "RUN ENDED · ENTER TO RESTART"
       : runComplete
         ? "40 FLOORS CLEARED · FLOOR RUSH COMPLETE"
@@ -674,6 +722,12 @@ function updateHud() {
   interactionStatus!.textContent = lobbyMessage;
   if (gameState === "lobby") {
     objectiveStatus!.textContent = "OBJECTIVE · Explore · E to interact";
+  } else if (gameState === "royale" && royaleComplete) {
+    objectiveStatus!.textContent = "ROYAL VICTORY · " + royaleEliminations + " rivals defeated · ESC menu";
+  } else if (gameState === "royale" && !combat.snapshot.alive) {
+    objectiveStatus!.textContent = "ROYAL ELIMINATED · " + royaleEliminations + " rivals defeated · ESC menu";
+  } else if (gameState === "royale") {
+    objectiveStatus!.textContent = "ROYAL PRACTICE · Defeat all rivals · " + enemies.length + " remaining · ESC menu";
   } else if (!combat.snapshot.alive) {
     objectiveStatus!.textContent = "RUN FAILED · Press ESC for menu";
   } else if (runComplete) {
@@ -713,6 +767,7 @@ function render(now: number) {
   updateLootDrops(simulationDelta);
   updateEnemies(simulationDelta);
   updateFloorRush(simulationDelta);
+  if (gameState === "royale" && enemies.length === 0) royaleComplete = true;
   updateEffects(simulationDelta);
   vfx.update(simulationDelta);
 
