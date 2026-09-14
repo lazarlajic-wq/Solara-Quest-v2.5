@@ -140,15 +140,97 @@ export function createLobbyWorld(scene: THREE.Scene) {
   portal.add(portalFallback);
 
   const energyRing = new THREE.Mesh(
-    new THREE.TorusGeometry(3.1, .06, 6, 32),
-    new THREE.MeshBasicMaterial({ color: "#ff7b38", transparent: true, opacity: .75, toneMapped: false }),
+    new THREE.TorusGeometry(1.28, .055, 6, 40),
+    new THREE.MeshBasicMaterial({
+      color: "#ff8a3d",
+      transparent: true,
+      opacity: .88,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+    }),
   );
   energyRing.name = "portal-energy";
   energyRing.rotation.x = Math.PI / 2;
-  energyRing.position.z = .5;
+  energyRing.position.set(0, -.08, 2.78);
   portal.add(energyRing);
+
+  const portalCoreMaterial = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uTime: { value: 0 },
+      uColorA: { value: new THREE.Color("#ff2d18") },
+      uColorB: { value: new THREE.Color("#ffb13b") },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      uniform vec3 uColorA;
+      uniform vec3 uColorB;
+      varying vec2 vUv;
+      void main() {
+        vec2 p = vUv - .5;
+        p.y *= 1.18;
+        float radius = length(p);
+        float angle = atan(p.y, p.x);
+        float spiral = sin(angle * 6.0 - uTime * 4.8 + radius * 25.0) * .5 + .5;
+        float ripples = sin(radius * 42.0 - uTime * 7.0) * .5 + .5;
+        float edge = smoothstep(.5, .18, radius);
+        float center = smoothstep(.42, .02, radius);
+        vec3 color = mix(uColorA, uColorB, spiral * .7 + ripples * .3);
+        color *= .38 + spiral * .82 + ripples * .28;
+        float alpha = edge * (.5 + center * .45);
+        gl_FragColor = vec4(color, alpha);
+      }
+    `,
+  });
+  const portalCore = new THREE.Mesh(new THREE.PlaneGeometry(2.28, 2.72, 1, 1), portalCoreMaterial);
+  portalCore.name = "portal-core";
+  portalCore.rotation.x = Math.PI / 2;
+  portalCore.position.set(0, .04, 2.78);
+  portal.add(portalCore);
+
+  const innerRing = energyRing.clone();
+  innerRing.name = "portal-energy-inner";
+  innerRing.scale.setScalar(.8);
+  innerRing.material = energyRing.material.clone();
+  (innerRing.material as THREE.MeshBasicMaterial).color.set("#ffcf70");
+  (innerRing.material as THREE.MeshBasicMaterial).opacity = .55;
+  portal.add(innerRing);
+
+  const emberGeometry = new THREE.BoxGeometry(.075, .075, .075);
+  const emberMaterial = new THREE.MeshBasicMaterial({
+    color: "#ff6a32",
+    transparent: true,
+    opacity: .9,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  const embers = new THREE.Group();
+  embers.name = "portal-embers";
+  for (let index = 0; index < 22; index += 1) {
+    const ember = new THREE.Mesh(emberGeometry, emberMaterial);
+    ember.userData.phase = Math.random() * Math.PI * 2;
+    ember.userData.radius = 1.1 + Math.random() * 1.25;
+    ember.userData.speed = .45 + Math.random() * .85;
+    ember.userData.height = Math.random() * 4.5;
+    embers.add(ember);
+  }
+  portal.add(embers);
+
   const portalLight = new THREE.PointLight("#ff4f2e", 34, 15, 2);
-  portalLight.position.z = 2.1;
+  portalLight.name = "portal-light";
+  portalLight.position.z = 2.8;
   portal.add(portalLight);
 
   const portalLoader = new GLTFLoader();
