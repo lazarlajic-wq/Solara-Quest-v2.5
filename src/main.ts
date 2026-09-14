@@ -790,6 +790,14 @@ function render(now: number) {
   updateEffects(simulationDelta);
   vfx.update(simulationDelta);
 
+  const lobbyPortal = gameState === "lobby" ? floorMap.getObjectByName("floor-rush-portal") : undefined;
+  const energyRing = lobbyPortal?.getObjectByName("portal-energy");
+  if (energyRing) {
+    energyRing.rotation.z += simulationDelta * 2.4;
+    const pulse = 1 + Math.sin(now * .006) * .07;
+    energyRing.scale.setScalar(pulse);
+  }
+
   const cameraTarget = new THREE.Vector3(player.position.x, player.position.y, .35);
   const horizontalDistance = CAMERA_DISTANCE * Math.cos(cameraPitch);
   const height = CAMERA_DISTANCE * Math.sin(cameraPitch);
