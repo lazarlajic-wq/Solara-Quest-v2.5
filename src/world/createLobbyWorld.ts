@@ -133,10 +133,10 @@ export function createLobbyWorld(scene: THREE.Scene) {
   const portalRing = new THREE.Mesh(new THREE.TorusGeometry(1.22, .18, 6, 12), material("#c65045", "#d84236"));
   portalRing.rotation.x = Math.PI / 2;
   portalRing.position.z = 1.35;
-  const portalCore = new THREE.Mesh(new THREE.CircleGeometry(1.05, 16), material("#f05d44", "#ff7046"));
-  portalCore.rotation.x = Math.PI / 2;
-  portalCore.position.z = 1.36;
-  portalFallback.add(portalBase, portalRing, portalCore);
+  const fallbackCore = new THREE.Mesh(new THREE.CircleGeometry(1.05, 16), material("#f05d44", "#ff7046"));
+  fallbackCore.rotation.x = Math.PI / 2;
+  fallbackCore.position.z = 1.36;
+  portalFallback.add(portalBase, portalRing, fallbackCore);
   portal.add(portalFallback);
 
   const energyRing = new THREE.Mesh(
