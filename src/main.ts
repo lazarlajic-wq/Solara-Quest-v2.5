@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { CLASS_KITS, type AbilityDefinition, type ClassKit, type PlayerClassId } from "./game/classKits";
 import { CombatState } from "./game/combatState";
 import { createRunStats, drawUpgradeChoices, type Upgrade } from "./game/upgrades";
+import { rollEquipment, type Equipment, type EquipmentSlot } from "./game/loot";
 import { createPixelWorld } from "./world/createPixelWorld";
 import "./style.css";
 
@@ -16,8 +17,9 @@ const classStatus = document.querySelector<HTMLSpanElement>("#class-status");
 const healthStatus = document.querySelector<HTMLSpanElement>("#health-status");
 const healthFill = document.querySelector<HTMLElement>("#health-fill");
 const shieldFill = document.querySelector<HTMLElement>("#shield-fill");
+const lootStatus = document.querySelector<HTMLSpanElement>("#loot-status");
 
-if (!app || !classPicker || !abilitiesHud || !upgradeOverlay || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill) {
+if (!app || !classPicker || !abilitiesHud || !upgradeOverlay || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill || !lootStatus) {
   throw new Error("Solara HUD could not be created.");
 }
 
@@ -87,10 +89,14 @@ type Projectile = {
 };
 
 type Effect = { mesh: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>; life: number; maxLife: number };
+type LootDrop = { mesh: THREE.Mesh<THREE.OctahedronGeometry, THREE.MeshStandardMaterial>; item: Equipment };
 
 const enemies: Enemy[] = [];
 const projectiles: Projectile[] = [];
 const effects: Effect[] = [];
+const lootDrops: LootDrop[] = [];
+const equipment: Partial<Record<EquipmentSlot, Equipment>> = {};
+const appliedUpgrades: Upgrade[] = [];
 
 let floor = 1;
 let runLevel = 1;
@@ -103,6 +109,42 @@ let pendingChoices: Upgrade[] = [];
 let runComplete = false;
 let runStats = createRunStats();
 let upgradeOpen = false;
+let latestLoot = "—";
+
+function rebuildRunStats() {
+  runStats = createRunStats();
+  for (const upgrade of appliedUpgrades) upgrade.apply(runStats);
+  for (const item of Object.values(equipment)) item?.apply(runStats);
+}
+
+function spawnLoot(enemy: Enemy) {
+  const guaranteed = enemy.tier !== "mob";
+  if (!guaranteed && Math.random() > .28) return;
+  const item = rollEquipment(floor, guaranteed);
+  const colors: Record<Equipment["rarity"], string> = { common: "#dadce2", rare: "#62adff", epic: "#cc78ff", legendary: "#ffb450" };
+  const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(.3, 0), new THREE.MeshStandardMaterial({ color: colors[item.rarity], emissive: colors[item.rarity], emissiveIntensity: .5, roughness: .4 }));
+  mesh.position.set(enemy.mesh.position.x, enemy.mesh.position.y, .38);
+  scene.add(mesh);
+  lootDrops.push({ mesh, item });
+}
+
+function updateLootDrops(delta: number) {
+  for (const drop of [...lootDrops]) {
+    drop.mesh.rotation.z += delta * 2.4;
+    drop.mesh.position.z = .38 + Math.sin(performance.now() * .005) * .08;
+    if (drop.mesh.position.distanceTo(player.position) > 1.25) continue;
+    const current = equipment[drop.item.slot];
+    if (!current || drop.item.score >= current.score) {
+      equipment[drop.item.slot] = drop.item;
+      rebuildRunStats();
+      latestLoot = drop.item.name + " · " + drop.item.description;
+    } else {
+      latestLoot = "Discarded " + drop.item.name;
+    }
+    scene.remove(drop.mesh);
+    lootDrops.splice(lootDrops.indexOf(drop), 1);
+  }
+}
 
 function spawnEnemy(x: number, y: number, tier: Enemy["tier"] = "mob") {
   const group = new THREE.Group();
@@ -158,7 +200,8 @@ function startFloor() {
 }
 
 function resolveUpgrade(upgrade: Upgrade) {
-  upgrade.apply(runStats);
+  appliedUpgrades.push(upgrade);
+  rebuildRunStats();
   upgradeOpen = false;
   upgradeOverlay!.hidden = true;
   combat.heal(22);
@@ -221,6 +264,11 @@ function restartFloorRush() {
   floorRewardPending = false;
   upgradeSecondsRemaining = 0;
   pendingChoices = [];
+  appliedUpgrades.splice(0);
+  for (const slot of Object.keys(equipment) as EquipmentSlot[]) delete equipment[slot];
+  for (const drop of lootDrops.splice(0)) scene.remove(drop.mesh);
+  rebuildRunStats();
+  latestLoot = "—";
   runComplete = false;
   runStats = createRunStats();
   upgradeOpen = false;
@@ -245,6 +293,7 @@ function damageEnemy(enemy: Enemy, amount: number, color: string) {
   if (life) life.scale.x = enemy.health / enemy.maxHealth;
   addEffect(new THREE.Vector2(enemy.mesh.position.x, enemy.mesh.position.y), enemy.radius + .18, color, .18);
   if (enemy.health <= 0) {
+    spawnLoot(enemy);
     gainXp(enemy.tier === "boss" ? 110 + floor * 14 : enemy.tier === "miniBoss" ? 46 + floor * 6 : 16 + floor * 2);
     scene.remove(enemy.mesh);
     enemies.splice(enemies.indexOf(enemy), 1);
@@ -522,6 +571,7 @@ function updateHud() {
   dashStatus!.textContent = dashCooldownRemaining <= 0 ? "DASH READY" : "DASH " + Math.round((1 - dashCooldownRemaining / 3) * 100) + "%";
   dashStatus!.style.color = dashCooldownRemaining <= 0 ? "#ffb257" : "#9cabb7";
   positionStatus!.textContent = "X " + Math.round(player.position.x) + " · Y " + Math.round(player.position.y);
+  lootStatus!.textContent = "LOOT: " + latestLoot;
   updateAbilityHud();
 }
 
@@ -549,6 +599,7 @@ function render(now: number) {
 
   updateAim();
   updateProjectiles(delta);
+  updateLootDrops(delta);
   updateEnemies(delta);
   updateFloorRush(delta);
   updateEffects(delta);
