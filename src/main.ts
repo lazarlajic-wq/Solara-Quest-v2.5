@@ -45,7 +45,7 @@ renderer.setSize(Math.floor(window.innerWidth * pixelScale), Math.floor(window.i
 renderer.domElement.style.width = "100vw";
 renderer.domElement.style.height = "100vh";
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = THREE.BasicShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.25;
@@ -220,7 +220,7 @@ function spawnEnemy(x: number, y: number, tier: Enemy["tier"] = "mob") {
   enemyBody.scale.set(1, .86, height / size);
   enemyBody.position.z = height * .56;
   enemyBody.userData.baseZ = enemyBody.position.z;
-  enemyBody.castShadow = true;
+  enemyBody.castShadow = false;
 
   const eyeMaterial = new THREE.MeshBasicMaterial({ color: accent, toneMapped: false });
   const eyeLeft = new THREE.Mesh(new THREE.BoxGeometry(.13, .08, .11), eyeMaterial);
