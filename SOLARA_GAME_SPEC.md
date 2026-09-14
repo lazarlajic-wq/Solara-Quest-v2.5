@@ -37,8 +37,10 @@ A cooperative or solo survival climb.
 
 - 1–4 players
 - 40 floors
-- escalating monster difficulty
-- boss encounter every 5th floor
+- a procedurally varied map layout and visual theme on every floor
+- increasing monster count, health, movement speed and damage
+- mini-boss plus mob escort every 5th floor
+- full boss encounter every 10th floor
 - temporary loot, levels and upgrades during the run
 - a failed run resets run-specific level and gear
 - goal: reach the furthest floor and improve the personal/team record
