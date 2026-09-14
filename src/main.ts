@@ -4,6 +4,7 @@ import { CombatState } from "./game/combatState";
 import { createRunStats, drawUpgradeChoices, type Upgrade } from "./game/upgrades";
 import { rollEquipment, type Equipment, type EquipmentSlot } from "./game/loot";
 import { createPixelWorld } from "./world/createPixelWorld";
+import { createLobbyWorld, LOBBY_POINTS } from "./world/createLobbyWorld";
 import { VfxSystem } from "./game/vfx";
 import "./style.css";
 
@@ -19,8 +20,10 @@ const healthStatus = document.querySelector<HTMLSpanElement>("#health-status");
 const healthFill = document.querySelector<HTMLElement>("#health-fill");
 const shieldFill = document.querySelector<HTMLElement>("#shield-fill");
 const lootStatus = document.querySelector<HTMLSpanElement>("#loot-status");
+const interactionStatus = document.querySelector<HTMLSpanElement>("#interaction-status");
+const inviteButton = document.querySelector<HTMLButtonElement>("#invite-button");
 
-if (!app || !classPicker || !abilitiesHud || !upgradeOverlay || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill || !lootStatus) {
+if (!app || !classPicker || !abilitiesHud || !upgradeOverlay || !floorStatus || !dashStatus || !positionStatus || !classStatus || !healthStatus || !healthFill || !shieldFill || !lootStatus || !interactionStatus || !inviteButton) {
   throw new Error("Solara HUD could not be created.");
 }
 
@@ -39,7 +42,7 @@ app.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#89b5c9");
-let floorMap = createPixelWorld(scene, 1);
+let floorMap = createLobbyWorld(scene);
 const vfx = new VfxSystem(scene);
 
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, .1, 100);
@@ -57,6 +60,10 @@ const CAMERA_DISTANCE = 17;
 let cameraYaw = 0;
 let cameraPitch = THREE.MathUtils.degToRad(50);
 let isCameraRotating = false;
+type GameState = "lobby" | "floorRush";
+let gameState: GameState = "lobby";
+let classMenuOpen = false;
+let lobbyMessage = "Explore the village · E to interact";
 
 const player = new THREE.Group();
 const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.72, 8), new THREE.MeshBasicMaterial({ color: "#081019", transparent: true, opacity: 0.55 }));
@@ -178,7 +185,19 @@ function refreshFloorMap() {
   floorMap = createPixelWorld(scene, floor);
 }
 
+function enterLobby() {
+  for (const enemy of enemies.splice(0)) scene.remove(enemy.mesh);
+  scene.remove(floorMap);
+  floorMap = createLobbyWorld(scene);
+  gameState = "lobby";
+  classMenuOpen = false;
+  lobbyMessage = "Explore the village · E to interact";
+  updateClassHud();
+}
+
 function startFloor() {
+  gameState = "floorRush";
+  classMenuOpen = false;
   refreshFloorMap();
   const isBossFloor = floor % 10 === 0;
   const isMiniBossFloor = floor % 5 === 0 && !isBossFloor;
@@ -280,7 +299,7 @@ function restartFloorRush() {
   startFloor();
 }
 
-startFloor();
+enterLobby();
 
 function addEffect(position: THREE.Vector2, radius: number, color: string, life = .34) {
   const mesh = new THREE.Mesh(new THREE.RingGeometry(Math.max(.12, radius * .62), radius, 20), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .92, side: THREE.DoubleSide }));
@@ -425,6 +444,7 @@ function updateClassHud() {
   classStatus!.textContent = kit.name.toUpperCase();
   classStatus!.style.color = kit.color;
   body.material.color.set(kit.color);
+  classPicker!.hidden = gameState !== "lobby" || !classMenuOpen;
   classPicker!.replaceChildren(...(Object.values(CLASS_KITS).map((nextKit) => {
     const button = document.createElement("button");
     button.textContent = nextKit.name.replace("Solaris ", "").replace("Astral ", "");
@@ -456,11 +476,42 @@ function updateAbilityHud() {
 
 updateClassHud();
 
+function tryLobbyInteraction() {
+  if (gameState !== "lobby") return;
+  const position = new THREE.Vector2(player.position.x, player.position.y);
+  if (position.distanceTo(LOBBY_POINTS.hut) < 3) {
+    classMenuOpen = !classMenuOpen;
+    lobbyMessage = classMenuOpen ? "Choose your class inside the hut" : "Hut closed";
+    updateClassHud();
+    return;
+  }
+  if (position.distanceTo(LOBBY_POINTS.floorPortal) < 2.8) {
+    lobbyMessage = "Entering Floor Rush";
+    restartFloorRush();
+    return;
+  }
+  if (position.distanceTo(LOBBY_POINTS.royalDragon) < 3) {
+    lobbyMessage = "Solara Royale lobby is next – match generator is being connected";
+    return;
+  }
+  lobbyMessage = "Move closer to the hut, hell portal or dragon monument";
+}
+
+inviteButton!.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(window.location.href);
+    lobbyMessage = "Local invite link copied · real friends need the multiplayer server";
+  } catch {
+    lobbyMessage = "Real friend invites will activate with multiplayer";
+  }
+});
+
 window.addEventListener("keydown", (event) => {
-  const controls = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7"];
+  const controls = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "KeyE"];
   if (controls.includes(event.code)) event.preventDefault();
   keys.add(event.code);
   if (event.repeat) return;
+  if (event.code === "KeyE") tryLobbyInteraction();
   if (event.code === "ShiftLeft" || event.code === "ShiftRight") startDash(kit.dashDistanceMultiplier);
   const abilitiesByKey: Record<string, AbilityDefinition | undefined> = { Digit1: kit.abilities[0], Digit2: kit.abilities[1], Digit3: kit.abilities[2], Digit4: kit.abilities[3] };
   const selectedAbility = abilitiesByKey[event.code];
@@ -571,15 +622,24 @@ function updateHud() {
   healthFill!.style.width = (snapshot.health / snapshot.maxHealth) * 100 + "%";
   shieldFill!.style.width = (snapshot.shield / snapshot.maxShield) * 100 + "%";
   healthStatus!.textContent = Math.ceil(snapshot.health) + " / " + snapshot.maxHealth;
-  floorStatus!.textContent = !combat.snapshot.alive
-    ? "RUN ENDED · ENTER TO RESTART"
-    : runComplete
-      ? "40 FLOORS CLEARED · FLOOR RUSH COMPLETE"
-      : "FLOOR " + floor + " · LEVEL " + runLevel + " · XP " + runXp + "/" + xpToNextLevel;
+  floorStatus!.textContent = gameState === "lobby"
+    ? "SOLARA VILLAGE · " + kit.name
+    : !combat.snapshot.alive
+      ? "RUN ENDED · ENTER TO RESTART"
+      : runComplete
+        ? "40 FLOORS CLEARED · FLOOR RUSH COMPLETE"
+        : "FLOOR " + floor + " · LEVEL " + runLevel + " · XP " + runXp + "/" + xpToNextLevel;
   dashStatus!.textContent = dashCooldownRemaining <= 0 ? "DASH READY" : "DASH " + Math.round((1 - dashCooldownRemaining / 3) * 100) + "%";
   dashStatus!.style.color = dashCooldownRemaining <= 0 ? "#ffb257" : "#9cabb7";
   positionStatus!.textContent = "X " + Math.round(player.position.x) + " · Y " + Math.round(player.position.y);
-  lootStatus!.textContent = "LOOT: " + latestLoot;
+  lootStatus!.textContent = gameState === "lobby" ? "CLASS: " + kit.name : "LOOT: " + latestLoot;
+  if (gameState === "lobby") {
+    const position = new THREE.Vector2(player.position.x, player.position.y);
+    if (position.distanceTo(LOBBY_POINTS.hut) < 3) lobbyMessage = classMenuOpen ? "Class selection open · E to close" : "Press E to enter your hut";
+    else if (position.distanceTo(LOBBY_POINTS.floorPortal) < 2.8) lobbyMessage = "Press E: Floor Rush · The Hell Gate";
+    else if (position.distanceTo(LOBBY_POINTS.royalDragon) < 3) lobbyMessage = "Press E: Solara Royale · Dragon Monument";
+  }
+  interactionStatus!.textContent = lobbyMessage;
   updateAbilityHud();
 }
 
