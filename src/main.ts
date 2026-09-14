@@ -126,11 +126,19 @@ type Projectile = {
 
 type Effect = { mesh: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>; life: number; maxLife: number };
 type LootDrop = { mesh: THREE.Mesh<THREE.OctahedronGeometry, THREE.MeshStandardMaterial>; item: Equipment };
+type BossBomb = {
+  mesh: THREE.Group;
+  start: THREE.Vector3;
+  target: THREE.Vector3;
+  life: number;
+  maxLife: number;
+};
 
 const enemies: Enemy[] = [];
 const projectiles: Projectile[] = [];
 const effects: Effect[] = [];
 const lootDrops: LootDrop[] = [];
+const bossBombs: BossBomb[] = [];
 const equipment: Partial<Record<EquipmentSlot, Equipment>> = {};
 const appliedUpgrades: Upgrade[] = [];
 
@@ -598,6 +606,7 @@ function usePotion() {
   combat.startCooldown("potion", 12);
   combat.heal(48 * runStats.potionMultiplier);
   addEffect(new THREE.Vector2(player.position.x, player.position.y), 1, "#77e5a6", .45);
+  vfx.skillCast(player.position, "#77e5a6", .85);
 }
 
 function useShield() {
@@ -606,16 +615,67 @@ function useShield() {
   combat.startCooldown("shield-item", 14);
   combat.grantShield(42 * runStats.shieldMultiplier);
   addEffect(new THREE.Vector2(player.position.x, player.position.y), 1.25, "#65c9ff", .55);
+  vfx.abilityImpact(player.position, "#65c9ff", "shield-item", 1.25);
 }
 
 function spawnBoss() {
   if (upgradeOpen) return;
   if (!combat.canUse("boss-spawner")) return;
   combat.startCooldown("boss-spawner", 30);
-  const target = new THREE.Vector2(aimWorld.x, aimWorld.y);
-  addEffect(target, 1.2, "#ffbe5c", .8);
-  vfx.bossSummon(new THREE.Vector3(target.x, target.y, 0));
-  window.setTimeout(() => spawnEnemy(target.x, target.y, "boss"), 600);
+  const start = new THREE.Vector3(player.position.x, player.position.y, .72);
+  const target = new THREE.Vector3(aimWorld.x, aimWorld.y, 0);
+
+  const bomb = new THREE.Group();
+  const shell = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(.34, 1),
+    new THREE.MeshStandardMaterial({
+      color: "#342346",
+      emissive: "#ff5b38",
+      emissiveIntensity: .65,
+      roughness: .35,
+      metalness: .5,
+    }),
+  );
+  const fuse = new THREE.Mesh(
+    new THREE.TorusGeometry(.42, .055, 5, 16),
+    new THREE.MeshBasicMaterial({
+      color: "#ffb94e",
+      toneMapped: false,
+      transparent: true,
+      opacity: .9,
+      blending: THREE.AdditiveBlending,
+    }),
+  );
+  fuse.rotation.x = Math.PI / 2;
+  const bombLight = new THREE.PointLight("#ff5b38", 14, 5, 2);
+  bomb.add(shell, fuse, bombLight);
+  bomb.position.copy(start);
+  scene.add(bomb);
+  bossBombs.push({ mesh: bomb, start, target, life: .72, maxLife: .72 });
+  vfx.skillCast(start, "#ffb94e", 1.05);
+}
+
+function updateBossBombs(delta: number) {
+  for (const bomb of [...bossBombs]) {
+    bomb.life -= delta;
+    const progress = THREE.MathUtils.clamp(1 - bomb.life / bomb.maxLife, 0, 1);
+    bomb.mesh.position.lerpVectors(bomb.start, bomb.target, progress);
+    bomb.mesh.position.z += Math.sin(progress * Math.PI) * 4.2;
+    bomb.mesh.rotation.x += delta * 8;
+    bomb.mesh.rotation.z += delta * 11;
+    const pulse = 1 + Math.sin(progress * Math.PI * 10) * .12;
+    bomb.mesh.scale.setScalar(pulse);
+    vfx.trail(bomb.mesh.position, progress > .62 ? "#ff4e31" : "#ffb94e", 1.3);
+
+    if (bomb.life <= 0) {
+      const target = bomb.target.clone();
+      scene.remove(bomb.mesh);
+      bossBombs.splice(bossBombs.indexOf(bomb), 1);
+      vfx.bossSummon(target);
+      triggerImpact(2.1, "#ff5b38");
+      spawnEnemy(target.x, target.y, "boss");
+    }
+  }
 }
 
 function rebuildClassVisual() {
@@ -998,6 +1058,7 @@ function render(now: number) {
 
   updateAim();
   updateProjectiles(simulationDelta);
+  updateBossBombs(simulationDelta);
   updateLootDrops(simulationDelta);
   updateEnemies(simulationDelta);
   updateFloorRush(simulationDelta);
@@ -1007,10 +1068,36 @@ function render(now: number) {
 
   const lobbyPortal = gameState === "lobby" ? floorMap.getObjectByName("floor-rush-portal") : undefined;
   const energyRing = lobbyPortal?.getObjectByName("portal-energy");
+  const innerEnergyRing = lobbyPortal?.getObjectByName("portal-energy-inner");
+  const portalCore = lobbyPortal?.getObjectByName("portal-core") as THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial> | undefined;
+  const portalLight = lobbyPortal?.getObjectByName("portal-light") as THREE.PointLight | undefined;
+  const portalEmbers = lobbyPortal?.getObjectByName("portal-embers");
   if (energyRing) {
     energyRing.rotation.z += simulationDelta * 2.4;
     const pulse = 1 + Math.sin(now * .006) * .07;
     energyRing.scale.setScalar(pulse);
+  }
+  if (innerEnergyRing) {
+    innerEnergyRing.rotation.z -= simulationDelta * 3.5;
+    const pulse = .8 + Math.cos(now * .007) * .045;
+    innerEnergyRing.scale.setScalar(pulse);
+  }
+  if (portalCore) portalCore.material.uniforms.uTime.value = now / 1000;
+  if (portalLight) portalLight.intensity = 29 + Math.sin(now * .011) * 5 + Math.sin(now * .027) * 2.5;
+  if (portalEmbers) {
+    portalEmbers.children.forEach((ember) => {
+      const phase = ember.userData.phase as number;
+      const radius = ember.userData.radius as number;
+      const speed = ember.userData.speed as number;
+      const cycle = ((now / 1000) * speed + phase) % 4.5;
+      const angle = phase + now * .00055 * speed;
+      ember.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius * .28, cycle);
+      const fade = Math.sin((cycle / 4.5) * Math.PI);
+      const emberMesh = ember as THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>;
+      emberMesh.material.opacity = Math.max(.08, fade);
+      ember.scale.setScalar(.55 + fade * .9);
+      ember.rotation.z += simulationDelta * 4;
+    });
   }
 
   const cameraTarget = new THREE.Vector3(player.position.x, player.position.y, .35);
