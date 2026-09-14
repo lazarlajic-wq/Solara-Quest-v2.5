@@ -42,9 +42,16 @@ export function createLobbyWorld(scene: THREE.Scene) {
   sun.shadow.normalBias = .025;
   world.add(ambient, sun);
 
-  // Unlit materials guarantee that the village remains visible on every WebGL driver.\n  const ground = new THREE.Mesh(new THREE.PlaneGeometry(48, 48), material("#4c7b5c"));
+  // Unlit materials guarantee that the village remains visible on every WebGL driver.
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(48, 48), material("#4c7b5c"));
   ground.receiveShadow = true;
-  world.add(ground);\n\n  const grid = new THREE.GridHelper(48, 24, "#6a9b70", "#3d674d");\n  grid.material.transparent = true;\n  grid.material.opacity = .34;\n  grid.position.z = .015;\n  world.add(grid);
+  world.add(ground);
+
+  const grid = new THREE.GridHelper(48, 24, "#6a9b70", "#3d674d");
+  grid.material.transparent = true;
+  grid.material.opacity = .34;
+  grid.position.z = .015;
+  world.add(grid);
 
   const path = new THREE.Mesh(new THREE.BoxGeometry(30, 2.2, .08), material("#bc9860"));
   path.position.set(0, 0, .04);
