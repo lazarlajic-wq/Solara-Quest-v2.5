@@ -267,9 +267,9 @@ function updateClassHud() {
 function updateAbilityHud() {
   const entries = [
     ...kit.abilities.map((ability) => ({ key: ability.key, name: ability.name, cooldown: combat.cooldownRemaining(ability.id) })),
-    { key: "1", name: "Potion", cooldown: combat.cooldownRemaining("potion") },
-    { key: "2", name: "Shield", cooldown: combat.cooldownRemaining("shield-item") },
-    { key: "3", name: "Boss Spawner", cooldown: combat.cooldownRemaining("boss-spawner") },
+    { key: "5", name: "Potion", cooldown: combat.cooldownRemaining("potion") },
+    { key: "6", name: "Shield", cooldown: combat.cooldownRemaining("shield-item") },
+    { key: "7", name: "Boss Spawner", cooldown: combat.cooldownRemaining("boss-spawner") },
   ];
   abilitiesHud!.replaceChildren(...entries.map((entry) => {
     const item = document.createElement("span");
@@ -282,17 +282,17 @@ function updateAbilityHud() {
 updateClassHud();
 
 window.addEventListener("keydown", (event) => {
-  const controls = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "KeyQ", "KeyE", "KeyR", "KeyF", "Digit1", "Digit2", "Digit3"];
+  const controls = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7"];
   if (controls.includes(event.code)) event.preventDefault();
   keys.add(event.code);
   if (event.repeat) return;
   if (event.code === "ShiftLeft" || event.code === "ShiftRight") startDash(kit.dashDistanceMultiplier);
-  const abilitiesByKey: Record<string, AbilityDefinition | undefined> = { KeyQ: kit.abilities[0], KeyE: kit.abilities[1], KeyR: kit.abilities[2], KeyF: kit.abilities[3] };
+  const abilitiesByKey: Record<string, AbilityDefinition | undefined> = { Digit1: kit.abilities[0], Digit2: kit.abilities[1], Digit3: kit.abilities[2], Digit4: kit.abilities[3] };
   const selectedAbility = abilitiesByKey[event.code];
   if (selectedAbility) useAbility(selectedAbility);
-  if (event.code === "Digit1") usePotion();
-  if (event.code === "Digit2") useShield();
-  if (event.code === "Digit3") spawnBoss();
+  if (event.code === "Digit5") usePotion();
+  if (event.code === "Digit6") useShield();
+  if (event.code === "Digit7") spawnBoss();
 });
 
 window.addEventListener("keyup", (event) => keys.delete(event.code));
