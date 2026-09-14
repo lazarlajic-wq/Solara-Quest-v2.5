@@ -4,6 +4,7 @@ import { CombatState } from "./game/combatState";
 import { createRunStats, drawUpgradeChoices, type Upgrade } from "./game/upgrades";
 import { rollEquipment, type Equipment, type EquipmentSlot } from "./game/loot";
 import { createPixelWorld } from "./world/createPixelWorld";
+import { VfxSystem } from "./game/vfx";
 import "./style.css";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -39,6 +40,7 @@ app.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#89b5c9");
 let floorMap = createPixelWorld(scene, 1);
+const vfx = new VfxSystem(scene);
 
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, .1, 100);
 camera.up.set(0, 0, 1);
@@ -292,6 +294,7 @@ function damageEnemy(enemy: Enemy, amount: number, color: string) {
   const life = enemy.mesh.getObjectByName("life") as THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | undefined;
   if (life) life.scale.x = enemy.health / enemy.maxHealth;
   addEffect(new THREE.Vector2(enemy.mesh.position.x, enemy.mesh.position.y), enemy.radius + .18, color, .18);
+  vfx.impact(enemy.mesh.position, color);
   if (enemy.health <= 0) {
     spawnLoot(enemy);
     gainXp(enemy.tier === "boss" ? 110 + floor * 14 : enemy.tier === "miniBoss" ? 46 + floor * 6 : 16 + floor * 2);
@@ -302,6 +305,7 @@ function damageEnemy(enemy: Enemy, amount: number, color: string) {
 
 function damageInArea(center: THREE.Vector2, radius: number, damage: number, color: string) {
   addEffect(center, radius, color);
+  vfx.ring(new THREE.Vector3(center.x, center.y, 0), radius, color);
   for (const enemy of [...enemies]) {
     const distance = center.distanceTo(new THREE.Vector2(enemy.mesh.position.x, enemy.mesh.position.y));
     if (distance <= radius + enemy.radius) damageEnemy(enemy, damage, color);
@@ -313,6 +317,7 @@ function fireProjectile(damage: number, color: string, speed = 16, radius = .16)
   const mesh = new THREE.Mesh(new THREE.CircleGeometry(radius, 8), new THREE.MeshBasicMaterial({ color }));
   mesh.position.set(player.position.x + direction.x * .72, player.position.y + direction.y * .72, .3);
   scene.add(mesh);
+  vfx.impact(mesh.position, color, 3);
   projectiles.push({ mesh, velocity: direction.multiplyScalar(speed), damage, life: 1.3, radius });
 }
 
@@ -355,6 +360,7 @@ function startDash(multiplier = 1) {
   const direction = getMoveDirection();
   dashDirection.copy(direction.lengthSq() === 0 ? new THREE.Vector2(Math.cos(player.rotation.z), Math.sin(player.rotation.z)) : direction);
   dashRemaining = .13 * multiplier;
+  vfx.dash(player.position, kit.color);
   dashCooldownRemaining = 3 * runStats.dashCooldownMultiplier;
 }
 
@@ -411,6 +417,7 @@ function spawnBoss() {
   combat.startCooldown("boss-spawner", 30);
   const target = new THREE.Vector2(aimWorld.x, aimWorld.y);
   addEffect(target, 1.2, "#ffbe5c", .8);
+  vfx.bossSummon(new THREE.Vector3(target.x, target.y, 0));
   window.setTimeout(() => spawnEnemy(target.x, target.y, "boss"), 600);
 }
 
@@ -499,6 +506,7 @@ function updateProjectiles(delta: number) {
     projectile.life -= delta;
     projectile.mesh.position.x += projectile.velocity.x * delta;
     projectile.mesh.position.y += projectile.velocity.y * delta;
+    vfx.trail(projectile.mesh.position, projectile.mesh.material.color);
     const hit = enemies.find((enemy) => projectile.mesh.position.distanceTo(enemy.mesh.position) < projectile.radius + enemy.radius);
     if (hit) damageEnemy(hit, projectile.damage, projectile.mesh.material.color.getStyle());
     if (hit || projectile.life <= 0) {
@@ -603,6 +611,7 @@ function render(now: number) {
   updateEnemies(delta);
   updateFloorRush(delta);
   updateEffects(delta);
+  vfx.update(delta);
 
   const cameraTarget = new THREE.Vector3(player.position.x, player.position.y, .35);
   const horizontalDistance = CAMERA_DISTANCE * Math.cos(cameraPitch);
