@@ -43,6 +43,10 @@ function resizeCamera() {
 }
 resizeCamera();
 
+const CAMERA_DISTANCE = 17;
+let cameraYaw = Math.PI / 4;
+let targetCameraYaw = cameraYaw;
+
 const arena = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshBasicMaterial({ color: "#1b2b35" }));
 scene.add(arena);
 const grid = new THREE.GridHelper(80, 80, "#3e5960", "#29434a");
@@ -60,14 +64,28 @@ addObstacle(8, -4, 3, 4);
 addObstacle(-3, -7, 6, 1);
 addObstacle(8, 5, 2.5, 2.5, "#54454f");
 
+function addTree(x: number, y: number, scale = 1) {
+  const tree = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.BoxGeometry(.32 * scale, .32 * scale, 1.1 * scale), new THREE.MeshBasicMaterial({ color: "#5d4130" }));
+  trunk.position.z = .55 * scale;
+  const leaves = new THREE.Mesh(new THREE.BoxGeometry(1.18 * scale, 1.18 * scale, .8 * scale), new THREE.MeshBasicMaterial({ color: "#3d805b" }));
+  leaves.position.z = 1.35 * scale;
+  const highlight = new THREE.Mesh(new THREE.BoxGeometry(.78 * scale, .78 * scale, .24 * scale), new THREE.MeshBasicMaterial({ color: "#70b875" }));
+  highlight.position.set(-.12 * scale, -.12 * scale, 1.82 * scale);
+  tree.add(trunk, leaves, highlight);
+  tree.position.set(x, y, 0);
+  scene.add(tree);
+}
+[[-10, 7, 1.1], [-8, -1, .8], [-1, 8, 1], [6, 7, .9], [11, 2, 1.15], [10, -8, .9], [-9, -8, 1], [3, -9, .75]]
+  .forEach(([x, y, scale]) => addTree(x, y, scale));
+
 const player = new THREE.Group();
 const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.72, 8), new THREE.MeshBasicMaterial({ color: "#081019", transparent: true, opacity: 0.55 }));
 shadow.scale.set(1.15, 0.62, 1);
-const body = new THREE.Mesh(new THREE.CircleGeometry(0.58, 8), new THREE.MeshBasicMaterial({ color: "#ff9f43" }));
-body.position.z = 0.15;
-const facing = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.58, 4), new THREE.MeshBasicMaterial({ color: "#fff0d6" }));
-facing.rotation.z = -Math.PI / 2;
-facing.position.set(0.62, 0, 0.18);
+const body = new THREE.Mesh(new THREE.BoxGeometry(.88, .88, 1.06), new THREE.MeshBasicMaterial({ color: "#ff9f43" }));
+body.position.z = .62;
+const facing = new THREE.Mesh(new THREE.BoxGeometry(.16, .82, .18), new THREE.MeshBasicMaterial({ color: "#fff0d6" }));
+facing.position.set(.62, 0, .68);
 player.add(shadow, body, facing);
 scene.add(player);
 
@@ -104,8 +122,8 @@ function spawnEnemy(x: number, y: number, boss = false) {
   const color = boss ? "#dc5c7a" : "#a773d9";
   const enemyShadow = new THREE.Mesh(new THREE.CircleGeometry(boss ? 1.15 : 0.66, 8), new THREE.MeshBasicMaterial({ color: "#080b12", transparent: true, opacity: .48 }));
   enemyShadow.scale.y = .62;
-  const enemyBody = new THREE.Mesh(new THREE.CircleGeometry(boss ? 1.05 : 0.58, 8), new THREE.MeshBasicMaterial({ color }));
-  enemyBody.position.z = .15;
+  const enemyBody = new THREE.Mesh(new THREE.BoxGeometry(boss ? 1.5 : .88, boss ? 1.5 : .88, boss ? 1.55 : 1.02), new THREE.MeshBasicMaterial({ color }));
+  enemyBody.position.z = boss ? .85 : .6;
   const lifeBg = new THREE.Mesh(new THREE.PlaneGeometry(boss ? 2 : 1.1, .12), new THREE.MeshBasicMaterial({ color: "#241c2a" }));
   lifeBg.position.set(0, boss ? 1.4 : .82, .25);
   const life = new THREE.Mesh(new THREE.PlaneGeometry(boss ? 1.94 : 1.04, .08), new THREE.MeshBasicMaterial({ color: "#77e5a6" }));
@@ -180,7 +198,10 @@ function getMoveDirection() {
   if (keys.has("KeyS")) moveDirection.y -= 1;
   if (keys.has("KeyA")) moveDirection.x -= 1;
   if (keys.has("KeyD")) moveDirection.x += 1;
-  return moveDirection.normalize();
+  moveDirection.normalize();
+  const screenRight = new THREE.Vector2(Math.cos(cameraYaw), Math.sin(cameraYaw));
+  const screenForward = new THREE.Vector2(-Math.sin(cameraYaw), Math.cos(cameraYaw));
+  return screenRight.multiplyScalar(moveDirection.x).add(screenForward.multiplyScalar(moveDirection.y));
 }
 
 function startDash(multiplier = 1) {
@@ -279,11 +300,13 @@ function updateAbilityHud() {
 updateClassHud();
 
 window.addEventListener("keydown", (event) => {
-  const controls = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "KeyQ", "KeyE", "KeyR", "KeyF", "Digit1", "Digit2", "Digit3"];
+  const controls = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "KeyQ", "KeyE", "KeyR", "KeyF", "Digit1", "Digit2", "Digit3", "KeyZ", "KeyC"];
   if (controls.includes(event.code)) event.preventDefault();
   keys.add(event.code);
   if (event.repeat) return;
   if (event.code === "ShiftLeft" || event.code === "ShiftRight") startDash(kit.dashDistanceMultiplier);
+  if (event.code === "KeyZ") targetCameraYaw -= Math.PI / 4;
+  if (event.code === "KeyC") targetCameraYaw += Math.PI / 4;
   const abilitiesByKey: Record<string, AbilityDefinition | undefined> = { KeyQ: kit.abilities[0], KeyE: kit.abilities[1], KeyR: kit.abilities[2], KeyF: kit.abilities[3] };
   const selectedAbility = abilitiesByKey[event.code];
   if (selectedAbility) useAbility(selectedAbility);
@@ -388,9 +411,14 @@ function render(now: number) {
   updateEnemies(delta);
   updateEffects(delta);
 
-  camera.position.x = THREE.MathUtils.lerp(camera.position.x, player.position.x, 1 - Math.exp(-8 * delta));
-  camera.position.y = THREE.MathUtils.lerp(camera.position.y, player.position.y, 1 - Math.exp(-8 * delta));
-  camera.lookAt(camera.position.x, camera.position.y, 0);
+  cameraYaw = THREE.MathUtils.lerp(cameraYaw, targetCameraYaw, 1 - Math.exp(-7 * delta));
+  const cameraTarget = new THREE.Vector3(player.position.x, player.position.y, 0);
+  camera.position.set(
+    player.position.x + Math.sin(cameraYaw) * CAMERA_DISTANCE,
+    player.position.y - Math.cos(cameraYaw) * CAMERA_DISTANCE,
+    CAMERA_DISTANCE,
+  );
+  camera.lookAt(cameraTarget);
   updateHud();
 
   renderer.render(scene, camera);
