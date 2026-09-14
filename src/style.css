@@ -29,3 +29,6 @@ p { margin: 0; font-size: 13px; color: #c5ced8; }
 .upgrade-card small { display: block; color: #ffb257; letter-spacing: .12em; font-weight: 800; margin-bottom: 9px; }
 .upgrade-card strong { display: block; font-size: 18px; margin-bottom: 8px; }
 .upgrade-card span { color: #cbd2dc; font-size: 13px; }
+
+#invite-button { pointer-events: auto; cursor: pointer; border: 1px solid rgba(255,178,87,.6); background: rgba(10,15,24,.85); color: #ffcb7e; border-radius: 6px; padding: 6px 9px; font: inherit; font-size: 11px; font-weight: 800; }
+#interaction-status { color: #d9e4ec; }
