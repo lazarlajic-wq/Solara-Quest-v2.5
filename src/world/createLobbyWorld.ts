@@ -1,7 +1,13 @@
 import * as THREE from "three";
 
 const material = (color: THREE.ColorRepresentation, emissive?: THREE.ColorRepresentation) =>
-  new THREE.MeshStandardMaterial({ color, roughness: .86, emissive: emissive ?? "#000000", emissiveIntensity: emissive ? .65 : 0 });
+  new THREE.MeshBasicMaterial({
+    color,
+    toneMapped: false,
+    transparent: Boolean(emissive),
+    opacity: 1,
+    side: THREE.DoubleSide,
+  });
 
 const cube = (width: number, depth: number, height: number, color: THREE.ColorRepresentation) => {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, depth, height), material(color));
@@ -36,9 +42,9 @@ export function createLobbyWorld(scene: THREE.Scene) {
   sun.shadow.normalBias = .025;
   world.add(ambient, sun);
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(48, 48), material("#4c7b5c"));
+  // Unlit materials guarantee that the village remains visible on every WebGL driver.\n  const ground = new THREE.Mesh(new THREE.PlaneGeometry(48, 48), material("#4c7b5c"));
   ground.receiveShadow = true;
-  world.add(ground);
+  world.add(ground);\n\n  const grid = new THREE.GridHelper(48, 24, "#6a9b70", "#3d674d");\n  grid.material.transparent = true;\n  grid.material.opacity = .34;\n  grid.position.z = .015;\n  world.add(grid);
 
   const path = new THREE.Mesh(new THREE.BoxGeometry(30, 2.2, .08), material("#bc9860"));
   path.position.set(0, 0, .04);
