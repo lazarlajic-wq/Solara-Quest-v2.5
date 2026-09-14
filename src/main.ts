@@ -105,6 +105,7 @@ let runLevel = 1;
 let runXp = 0;
 let xpToNextLevel = 80;
 let nextFloorDelay = .9;
+let runComplete = false;
 
 function spawnEnemy(x: number, y: number, boss = false) {
   const group = new THREE.Group();
@@ -153,6 +154,7 @@ function restartFloorRush() {
   runXp = 0;
   xpToNextLevel = 80;
   nextFloorDelay = .9;
+  runComplete = false;
   combat = new CombatState(kit.maxHealth);
   player.position.set(0, 0, 0);
 }
@@ -400,14 +402,18 @@ function updateEnemies(delta: number) {
 }
 
 function updateFloorRush(delta: number) {
-  if (!combat.snapshot.alive) return;
+  if (!combat.snapshot.alive || runComplete) return;
   if (enemies.length > 0) {
     nextFloorDelay = .9;
     return;
   }
   nextFloorDelay -= delta;
   if (nextFloorDelay <= 0) {
-    floor = Math.min(floor + 1, 40);
+    if (floor >= 40) {
+      runComplete = true;
+      return;
+    }
+    floor += 1;
     startFloor();
     nextFloorDelay = .9;
   }
@@ -431,9 +437,11 @@ function updateHud() {
   healthFill!.style.width = (snapshot.health / snapshot.maxHealth) * 100 + "%";
   shieldFill!.style.width = (snapshot.shield / snapshot.maxShield) * 100 + "%";
   healthStatus!.textContent = Math.ceil(snapshot.health) + " / " + snapshot.maxHealth;
-  floorStatus!.textContent = combat.snapshot.alive
-    ? "FLOOR " + floor + " · LEVEL " + runLevel + " · XP " + runXp + "/" + xpToNextLevel
-    : "RUN ENDED · ENTER TO RESTART";
+  floorStatus!.textContent = !combat.snapshot.alive
+    ? "RUN ENDED · ENTER TO RESTART"
+    : runComplete
+      ? "40 FLOORS CLEARED · FLOOR RUSH COMPLETE"
+      : "FLOOR " + floor + " · LEVEL " + runLevel + " · XP " + runXp + "/" + xpToNextLevel;
   dashStatus!.textContent = dashCooldownRemaining <= 0 ? "DASH READY" : "DASH " + Math.round((1 - dashCooldownRemaining / 3) * 100) + "%";
   dashStatus!.style.color = dashCooldownRemaining <= 0 ? "#ffb257" : "#9cabb7";
   positionStatus!.textContent = "X " + Math.round(player.position.x) + " · Y " + Math.round(player.position.y);
